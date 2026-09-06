@@ -1,0 +1,55 @@
+{
+  "chart_type": "line",
+  "title": "Test Sales Chart",
+  "x_axis": {
+    "label": "Month",
+    "scale_type": "linear",
+    "unit": "",
+    "values": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ]
+  },
+  "y_axis": {
+    "label": "Sales",
+    "scale_type": "linear",
+    "unit": "units",
+    "values": [
+      "10",
+      "20",
+      "30",
+      "40",
+      "50"
+    ]
+  },
+  "series": [
+    {
+      "name": "Sales",
+      "points": [
+        {
+          "x": 1,
+          "y": 10
+        },
+        {
+          "x": 2,
+          "y": 20
+        },
+        {
+          "x": 3,
+          "y": 15
+        },
+        {
+          "x": 4,
+          "y": 40
+        },
+        {
+          "x": 5,
+          "y": 35
+        }
+      ]
+    }
+  ]
+}
