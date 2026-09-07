@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:#050505;-webkit-font-smoothing:antialiased}
+a{color:#F2FF49;text-decoration:none}
+a:hover{color:#ffffff}
+*{box-sizing:border-box}
+@keyframes cs-marquee{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+@keyframes cs-breathe{0%,100%{transform:translate3d(-50%,-50%,0) scale(1);opacity:.55}50%{transform:translate3d(-50%,-50%,0) scale(1.12);opacity:.85}}
+@keyframes cs-sweep{from{background-position:0% 50%}to{background-position:200% 50%}}
+@keyframes cs-blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes cs-rise{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="position:relative;min-height:100vh;overflow:hidden;background:#050505;font-family:'Space Grotesk',Helvetica,sans-serif;color:#fff">
+
+  <div style="position:absolute;inset:0;pointer-events:none;z-index:0;background:radial-gradient(120% 60% at 50% 0%,rgba(242,255,73,.05),transparent 60%)"></div>
+  <div style="position:absolute;left:50%;top:34%;width:760px;height:760px;border-radius:50%;pointer-events:none;z-index:0;background:radial-gradient(circle at 38% 32%,rgba(120,160,255,.20),rgba(60,80,200,.10) 42%,rgba(5,5,5,0) 68%);filter:blur(6px);animation:cs-breathe 14s ease-in-out infinite"></div>
+  <sc-if value="{{ marquee }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;top:44%;left:0;width:100%;overflow:hidden;pointer-events:none;z-index:1;opacity:.03">
+      <div style="display:flex;width:200%;white-space:nowrap;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:150px;letter-spacing:.06em;line-height:1;color:#fff;animation:cs-marquee 34s linear infinite">
+        <span>CHARTSPEAKS&nbsp;·&nbsp;CHARTSPEAKS&nbsp;·&nbsp;CHARTSPEAKS&nbsp;·&nbsp;</span>
+        <span>CHARTSPEAKS&nbsp;·&nbsp;CHARTSPEAKS&nbsp;·&nbsp;CHARTSPEAKS&nbsp;·&nbsp;</span>
+      </div>
+    </div>
+  </sc-if>
+  <div style="position:absolute;inset:0;pointer-events:none;z-index:2;background:linear-gradient(180deg,rgba(5,5,5,.7),rgba(5,5,5,0) 30%,rgba(5,5,5,.85))"></div>
+
+  <div style="position:relative;z-index:3;width:100%;max-width:650px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:20px;padding:26px 20px 40px">
+
+    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:19px;letter-spacing:.16em;color:#fff">CHARTSPEAKS</div>
+        <div style="font-size:13px;line-height:1.4;color:#B9B9B4">Charts, read aloud and felt by hand.</div>
+      </div>
+      <div style="flex:none;display:flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid rgba(242,255,73,.5);border-radius:999px;background:rgba(242,255,73,.08)">
+        <span style="width:7px;height:7px;border-radius:50%;background:#F2FF49;animation:cs-blink 2.4s ease-in-out infinite"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#F2FF49">WCAG AAA</span>
+      </div>
+    </header>
+
+    <sc-if value="{{ isUpload }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:16px;animation:cs-rise .35s ease both">
+
+        <div onClick="{{ pickDefault }}" onPointerEnter="{{ dropOn }}" onPointerLeave="{{ dropOff }}" style="position:relative;border-radius:22px;padding:38px 24px;text-align:center;cursor:pointer;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:border-color .2s,box-shadow .25s,background .25s" style-hover="border:2px dashed #F2FF49" >
+          <div style="position:absolute;inset:0;border-radius:22px;border:2px dashed rgba(255,255,255,.22);pointer-events:none"></div>
+          <div style="position:absolute;inset:0;border-radius:22px;pointer-events:none;border:2px dashed #F2FF49;box-shadow:0 0 34px rgba(242,255,73,.28),inset 0 0 34px rgba(242,255,73,.10);transition:opacity .25s;opacity:{{ dropGlow }}"></div>
+          <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:14px">
+            <div style="width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:rgba(242,255,73,.12);border:1px solid rgba(242,255,73,.35)">
+              <div style="width:16px;height:16px;border-left:2.5px solid #F2FF49;border-top:2.5px solid #F2FF49;transform:rotate(45deg) translate(2px,2px)"></div>
+            </div>
+            <div style="font-size:18px;font-weight:500;color:#fff">Drop a chart image or CSV</div>
+            <div style="font-size:13px;line-height:1.5;max-width:330px;color:#B9B9B4">We rebuild it as semantic text for Braille displays and as a haptic surface for your fingertip.</div>
+          </div>
+        </div>
+
+        <div style="position:relative">
+          <button onClick="{{ toggleMenu }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border:1px solid rgba(255,255,255,.16);border-radius:16px;background:rgba(255,255,255,.05);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);color:#fff;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:500;cursor:pointer;min-height:56px" style-hover="border:1px solid rgba(242,255,73,.55)">
+            <span>Choose from recent files</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#F2FF49">{{ menuCaret }}</span>
+          </button>
+          <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:9;padding:8px;border:1px solid rgba(255,255,255,.16);border-radius:16px;background:rgba(18,18,18,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 24px 60px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:4px;animation:cs-rise .18s ease both">
+              <sc-for list="{{ files }}" as="f" hint-placeholder-count="4">
+                <div onClick="{{ f.pick }}" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:11px;cursor:pointer;min-height:52px;transition:background .15s" style-hover="background:rgba(242,255,73,.10)">
+                  <span style="flex:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.03em;color:#050505;background:{{ f.tint }}">{{ f.ext }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <span style="font-size:14px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.name }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#8E8E88">{{ f.meta }}</span>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <p style="margin:2px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#6E6E68">SUPPORTED · PNG · JPG · SVG · CSV · XLSX</p>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isProcessing }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:18px;padding:30px 22px;border:1px solid rgba(255,255,255,.12);border-radius:22px;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);animation:cs-rise .3s ease both" role="status" aria-live="polite">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8E8E88">PROCESSING</div>
+        <div style="font-size:20px;font-weight:500;color:#fff;min-height:28px">{{ processMsg }}</div>
+        <div style="position:relative;height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.10)">
+          <div style="height:100%;border-radius:999px;background:linear-gradient(90deg,#F2FF49,#6E8CFF,#F2FF49);background-size:200% 100%;animation:cs-sweep 1.1s linear infinite;box-shadow:0 0 18px rgba(242,255,73,.5);transition:width .5s ease;width:{{ processPct }}"></div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#B9B9B4">{{ fileName }}</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isResults }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:18px;animation:cs-rise .35s ease both">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+            <div style="font-size:17px;font-weight:500;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ title }}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:#8E8E88">{{ subtitle }}</div>
+          </div>
+          <button onClick="{{ reset }}" style="flex:none;padding:11px 14px;min-height:44px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:transparent;color:#B9B9B4;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer" style-hover="color:#F2FF49">NEW FILE</button>
+        </div>
+
+        <div role="tablist" style="display:flex;flex-direction:row;gap:6px;padding:6px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)">
+          <button role="tab" onClick="{{ goRead }}" aria-selected="{{ isRead }}" style="flex:1;min-height:52px;border:none;border-radius:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;transition:all .2s;background:{{ readTabBg }};color:{{ readTabFg }};box-shadow:{{ readTabShadow }}">READ</button>
+          <button role="tab" onClick="{{ goFeel }}" aria-selected="{{ isFeel }}" style="flex:1;min-height:52px;border:none;border-radius:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;transition:all .2s;background:{{ feelTabBg }};color:{{ feelTabFg }};box-shadow:{{ feelTabShadow }}">FEEL</button>
+        </div>
+
+        <sc-if value="{{ isRead }}" hint-placeholder-val="{{ true }}">
+          <article style="display:flex;flex-direction:column;gap:20px;padding:22px 20px;border:1px solid rgba(255,255,255,.12);border-radius:22px;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)">
+            <h3 style="margin:0;font-size:19px;font-weight:700;line-height:1.3;color:#fff">{{ title }}</h3>
+            <p style="margin:0;font-size:15px;line-height:1.65;color:#E4E4DE">{{ summary }}</p>
+
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <h3 style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;color:#8E8E88">EXTREMA</h3>
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:#F2FF49;color:#050505;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700">HIGH {{ hiLabel }} · {{ hiValue }}</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:transparent;border:2px solid #F2FF49;color:#F2FF49;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700">LOW {{ loLabel }} · {{ loValue }}</span>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <h3 style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;color:#8E8E88">DATA POINTS · {{ count }}</h3>
+              <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px">
+                <sc-for list="{{ points }}" as="p" hint-placeholder-count="12">
+                  <li style="display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,.07);min-height:46px">
+                    <span style="flex:none;width:46px;font-family:'JetBrains Mono',monospace;font-size:13px;color:#E4E4DE">{{ p.label }}</span>
+                    <span style="flex:1;height:10px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden">
+                      <span style="display:block;height:100%;border-radius:3px;background:{{ p.fill }};width:{{ p.bar }}"></span>
+                    </span>
+                    <span style="flex:none;width:64px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:{{ p.ink }}">{{ p.value }}</span>
+                    <sc-if value="{{ p.tag }}" hint-placeholder-val="{{ false }}">
+                      <span style="flex:none;padding:4px 8px;border-radius:999px;background:#F2FF49;color:#050505;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em">{{ p.tag }}</span>
+                    </sc-if>
+                  </li>
+                </sc-for>
+              </ul>
+            </div>
+
+            <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;color:#6E6E68">Structure mapped to article / heading / list tags for line-by-line Braille output.</p>
+          </article>
+        </sc-if>
+
+        <sc-if value="{{ isFeel }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div onPointerDown="{{ onScan }}" onPointerMove="{{ onScan }}" onPointerUp="{{ endScan }}" onPointerLeave="{{ endScan }}" style="position:relative;width:100%;aspect-ratio:4/3;border-radius:22px;overflow:hidden;touch-action:none;cursor:crosshair;background:#0A0A0A;border:1px solid rgba(255,255,255,.10);box-shadow:inset 0 6px 22px rgba(0,0,0,.9),inset 0 -2px 14px rgba(255,255,255,.05)">
+              <svg viewBox="0 0 400 300" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+                <polyline points="{{ areaPts }}" fill="rgba(110,140,255,.16)" stroke="none"></polyline>
+                <polyline points="{{ linePts }}" fill="none" stroke="#8FA8FF" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                <sc-for list="{{ points }}" as="p" hint-placeholder-count="12">
+                  <circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="4" fill="#050505" stroke="#8FA8FF" stroke-width="2"></circle>
+                </sc-for>
+              </svg>
+              <div style="position:absolute;top:0;bottom:0;width:2px;background:#F2FF49;box-shadow:0 0 16px 3px rgba(242,255,73,.6);pointer-events:none;transition:opacity .15s;opacity:{{ scanOpacity }};left:{{ scanLeft }}"></div>
+              <div style="position:absolute;top:14px;padding:10px 12px;border-radius:12px;background:rgba(10,10,10,.94);border:1px solid rgba(242,255,73,.5);box-shadow:0 10px 30px rgba(0,0,0,.7);pointer-events:none;transform:translateX(-50%);transition:opacity .15s;opacity:{{ scanOpacity }};left:{{ tipLeft }}">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8E8E88">{{ scanLabel }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#F2FF49">{{ scanValue }}</div>
+              </div>
+              <sc-if value="{{ scanIdle }}" hint-placeholder-val="{{ true }}">
+                <div style="position:absolute;left:0;right:0;bottom:16px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;color:#8E8E88;pointer-events:none">DRAG ACROSS TO SCAN</div>
+              </sc-if>
+            </div>
+
+            <div style="display:flex;gap:10px">
+              <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:5px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8E8E88">POSITION</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#fff">{{ scanPos }}</span>
+              </div>
+              <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:5px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8E8E88">SLOPE</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#F2FF49">{{ scanSlope }}</span>
+              </div>
+              <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:5px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8E8E88">PULSE</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#fff">{{ scanPulse }}</span>
+              </div>
+            </div>
+            <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;color:#6E6E68">Haptic motor pulses harder as the value rises. Page scroll is locked while the canvas is held.</p>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:650,&quot;height&quot;:900},&quot;marquee&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Shell&quot;},&quot;haptics&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Feel mode&quot;},&quot;latency&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Fast&quot;,&quot;Normal&quot;,&quot;Slow&quot;],&quot;default&quot;:&quot;Normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Processing&quot;},&quot;startMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;READ&quot;,&quot;FEEL&quot;],&quot;default&quot;:&quot;READ&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Feel mode&quot;}}">
+const DATA = [
+  {label:'Jan', value:4.2},{label:'Feb', value:5.1},{label:'Mar', value:4.8},
+  {label:'Apr', value:6.3},{label:'May', value:7.9},{label:'Jun', value:7.1},
+  {label:'Jul', value:8.8},{label:'Aug', value:9.6},{label:'Sep', value:8.2},
+  {label:'Oct', value:10.4},{label:'Nov', value:12.1},{label:'Dec', value:11.3}
+];
+const MSGS = ['Reading file structure…','Extracting spatial data…','Mapping axis semantics…','Calculating salience…'];
+const FILES = [
+  {name:'q4-revenue-by-region.png', ext:'PNG', meta:'1.4 MB · yesterday', tint:'#F2FF49'},
+  {name:'monthly-revenue-2026.csv', ext:'CSV', meta:'22 KB · 3 days ago', tint:'#8FA8FF'},
+  {name:'clinic-wait-times.xlsx', ext:'XLS', meta:'88 KB · last week', tint:'#7FE0B0'},
+  {name:'transit-ridership.svg', ext:'SVG', meta:'310 KB · last week', tint:'#FFA36E'}
+];
+
+class Component extends DCLogic {
+  state = { stage:'upload', mode:null, drop:false, menu:false, file:'', step:0, scan:null };
+
+  componentWillUnmount(){ (this.timers||[]).forEach(clearTimeout); }
+
+  start = (name) => {
+    (this.timers||[]).forEach(clearTimeout);
+    const mult = ({Fast:0.55, Normal:1, Slow:1.7})[this.props.latency ?? 'Normal'] || 1;
+    this.setState({stage:'processing', file:name, step:0, menu:false, drop:false, scan:null});
+    this.timers = MSGS.map((m,i)=>setTimeout(()=>this.setState({step:i}), 750*i*mult));
+    this.timers.push(setTimeout(()=>this.setState({stage:'results'}), 750*MSGS.length*mult));
+  };
+
+  onScan = (e) => {
+    if (e.type === 'pointermove' && e.buttons === 0 && e.pointerType === 'mouse' && this.state.scan === null) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const rel = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const idx = Math.round(rel * (DATA.length - 1));
+    if (idx !== this.state.scan && (this.props.haptics ?? true) && navigator.vibrate) {
+      navigator.vibrate(4 + Math.round(DATA[idx].value));
+    }
+    if (idx !== this.state.scan) this.setState({scan: idx});
+  };
+
+  renderVals(){
+    const s = this.state;
+    const mode = s.mode || (this.props.startMode ?? 'READ');
+    const vals = DATA.map(d=>d.value);
+    const max = Math.max(...vals), min = Math.min(...vals);
+    const hi = DATA[vals.indexOf(max)], lo = DATA[vals.indexOf(min)];
+    const X = i => 22 + i * (356 / (DATA.length - 1));
+    const Y = v => 274 - ((v - min) / (max - min)) * 240;
+    const fmt = v => '$' + v.toFixed(1) + 'M';
+
+    const points = DATA.map((d,i)=>({
+      label: d.label,
+      value: fmt(d.value),
+      bar: (10 + (d.value - min) / (max - min) * 90).toFixed(1) + '%',
+      fill: d === hi || d === lo ? '#F2FF49' : 'rgba(143,168,255,.85)',
+      ink: d === hi || d === lo ? '#F2FF49' : '#fff',
+      tag: d === hi ? 'HIGH' : (d === lo ? 'LOW' : null),
+      cx: X(i), cy: Y(d.value)
+    }));
+    const linePts = DATA.map((d,i)=>X(i).toFixed(1)+','+Y(d.value).toFixed(1)).join(' ');
+    const areaPts = '22,296 ' + linePts + ' 378,296';
+
+    const si = s.scan;
+    const active = si !== null && si !== undefined;
+    const prev = active && si > 0 ? DATA[si-1].value : null;
+    const delta = active && prev !== null ? DATA[si].value - prev : 0;
+
+    return {
+      marquee: this.props.marquee ?? true,
+      isUpload: s.stage === 'upload',
+      isProcessing: s.stage === 'processing',
+      isResults: s.stage === 'results',
+      isRead: mode === 'READ', isFeel: mode === 'FEEL',
+      readTabBg: mode === 'READ' ? '#F2FF49' : 'transparent',
+      readTabFg: mode === 'READ' ? '#050505' : '#8E8E88',
+      readTabShadow: mode === 'READ' ? '0 6px 20px rgba(242,255,73,.28)' : 'none',
+      feelTabBg: mode === 'FEEL' ? '#F2FF49' : 'transparent',
+      feelTabFg: mode === 'FEEL' ? '#050505' : '#8E8E88',
+      feelTabShadow: mode === 'FEEL' ? '0 6px 20px rgba(242,255,73,.28)' : 'none',
+      goRead: ()=>this.setState({mode:'READ'}),
+      goFeel: ()=>this.setState({mode:'FEEL'}),
+      dropGlow: s.drop ? 1 : 0,
+      dropOn: ()=>this.setState({drop:true}),
+      dropOff: ()=>this.setState({drop:false}),
+      menuOpen: s.menu,
+      menuCaret: s.menu ? '▲' : '▼',
+      toggleMenu: ()=>this.setState({menu:!s.menu}),
+      pickDefault: ()=>this.start(FILES[1].name),
+      files: FILES.map(f=>({...f, pick: ()=>this.start(f.name)})),
+      processMsg: MSGS[Math.min(s.step, MSGS.length-1)],
+      processPct: ((s.step + 1) / MSGS.length * 100).toFixed(0) + '%',
+      fileName: s.file,
+      title: 'Monthly revenue, 2026',
+      subtitle: 'LINE CHART · 12 POINTS · ' + (s.file || 'monthly-revenue-2026.csv').toUpperCase(),
+      summary: 'Revenue climbs steadily across the year, from ' + fmt(min) + ' in ' + lo.label + ' to a peak of ' + fmt(max) + ' in ' + hi.label + ', then eases slightly in December. Three dips interrupt the rise: March, June and September.',
+      count: DATA.length,
+      hiLabel: hi.label, hiValue: fmt(hi.value),
+      loLabel: lo.label, loValue: fmt(lo.value),
+      points, linePts, areaPts,
+      scanOpacity: active ? 1 : 0,
+      scanIdle: !active,
+      scanLeft: active ? (X(si)/400*100).toFixed(2)+'%' : '50%',
+      tipLeft: active ? Math.min(86, Math.max(14, X(si)/400*100)).toFixed(2)+'%' : '50%',
+      scanLabel: active ? DATA[si].label.toUpperCase() : '—',
+      scanValue: active ? fmt(DATA[si].value) : '—',
+      scanPos: active ? (si+1) + '/' + DATA.length : '—',
+      scanSlope: active ? (delta >= 0 ? '+' : '') + delta.toFixed(1) : '—',
+      scanPulse: active ? Math.round(20 + (DATA[si].value - min)/(max-min)*80) + '%' : '—',
+      endScan: ()=>this.setState({scan:null}),
+      onScan: this.onScan,
+      reset: ()=>{ (this.timers||[]).forEach(clearTimeout); this.setState({stage:'upload', mode:null, scan:null, file:''}); }
+    };
+  }
+}
+</script>
+</body>
+</html>
