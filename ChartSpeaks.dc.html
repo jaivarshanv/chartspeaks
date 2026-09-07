@@ -46,7 +46,7 @@ a:hover{color:#ffffff}
       </div>
       <div style="flex:none;display:flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid rgba(242,255,73,.5);border-radius:999px;background:rgba(242,255,73,.08)">
         <span style="width:7px;height:7px;border-radius:50%;background:#F2FF49;animation:cs-blink 2.4s ease-in-out infinite"></span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#F2FF49">WCAG AAA</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#F2FF49">LIVE</span>
       </div>
     </header>
 
@@ -334,7 +334,7 @@ class Component extends DCLogic {
       if (err && err.name === 'AbortError') return;
       console.error('[ChartSpeaks] network error reaching', API_BASE, err);
       this.clearTimers();
-      this.setState({stage:'error', errorMessage: 'Could not reach the ChartSpeak server. Check your connection and try again.'});
+      this.setState({stage:'error', errorMessage: 'Could not read the file . Check your connection, image-type ,nature and try again.'});
       return;
     }
 
