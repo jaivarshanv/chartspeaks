@@ -145,6 +145,8 @@ a:hover{color:#ffffff}
 
         <sc-if value="{{ isFeel }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;flex-direction:column;gap:14px">
+            <button onClick="{{ togglePlay }}" style="align-self:flex-start;padding:11px 16px;min-height:44px;border:1px solid {{ playBorder }};border-radius:12px;background:{{ playBg }};color:{{ playFg }};font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer;font-weight:700">{{ playLabel }}</button>
+
             <div onPointerDown="{{ onScan }}" onPointerMove="{{ onScan }}" onPointerUp="{{ endScan }}" onPointerLeave="{{ endScan }}" style="position:relative;width:100%;aspect-ratio:4/3;border-radius:22px;overflow:hidden;touch-action:none;cursor:crosshair;background:#0A0A0A;border:1px solid rgba(255,255,255,.10);box-shadow:inset 0 6px 22px rgba(0,0,0,.9),inset 0 -2px 14px rgba(255,255,255,.05)">
               <svg viewBox="0 0 400 300" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
                 <polyline points="{{ areaPts }}" fill="rgba(110,140,255,.16)" stroke="none"></polyline>
@@ -187,7 +189,9 @@ a:hover{color:#ffffff}
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:650,&quot;height&quot;:900},&quot;marquee&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Shell&quot;},&quot;haptics&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Feel mode&quot;},&quot;startMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;READ&quot;,&quot;FEEL&quot;],&quot;default&quot;:&quot;READ&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Feel mode&quot;}}">
-const API_BASE = 'https://chartspeaks-1.onrender.com';
+// Defaults to the deployed backend; override with ?api=http://host:port
+// for local/LAN testing without touching this default.
+const API_BASE = new URLSearchParams(location.search).get('api') || 'https://chartspeaks-1.onrender.com';
 const MSGS = ['Reading file structure…','Extracting spatial data…','Mapping axis semantics…','Calculating salience…'];
 
 // Rebuilds the original {x,y} point list from a SeriesAnalysis. The API
@@ -220,10 +224,49 @@ function prettifyTitle(chartId) {
   return chartId.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-class Component extends DCLogic {
-  state = { stage:'upload', mode:null, drop:false, file:'', scan:null, apiResult:null, errorMessage:null, step:0, elapsedMs:0 };
+// Rate-ladder haptic engine, ported from shape-tracker.html: a small set of
+// discrete Hz "levels" played as a sustained tick-train that only restarts
+// when the level actually changes. Re-firing navigator.vibrate() every frame
+// (the previous approach here) cancels whatever's running before the motor
+// spins up, which smears everything into flat static -- this fixes that.
+const LADDER = [2, 4, 8, 16];
+const CHUNK_MS = 900;
+const MIN_TICK = 8, MAX_TICK = 22;
 
-  componentWillUnmount(){ this.clearTimers(); if (this.abortController) this.abortController.abort(); }
+function tickFor(hz) {
+  const half = Math.round(1000 / hz / 2);
+  return Math.max(MIN_TICK, Math.min(MAX_TICK, half));
+}
+
+function train(hz) {
+  const tick = tickFor(hz);
+  const period = Math.round(1000 / hz);
+  const gap = Math.max(6, period - tick);
+  const cycles = Math.max(1, Math.round(CHUNK_MS / (tick + gap)));
+  const pat = [];
+  for (let i = 0; i < cycles; i++) { pat.push(tick); pat.push(gap); }
+  return pat;
+}
+
+function levelForHeight(h) {
+  let idx = Math.floor(h * LADDER.length);
+  if (idx > LADDER.length - 1) idx = LADDER.length - 1;
+  if (idx < 0) idx = 0;
+  return idx;
+}
+
+const PLAY_MS = 4000;
+const STEP_MS = 40;
+
+class Component extends DCLogic {
+  state = { stage:'upload', mode:null, drop:false, file:'', scan:null, apiResult:null, errorMessage:null, step:0, elapsedMs:0, level:-1, playing:false };
+
+  componentWillUnmount(){
+    this.clearTimers();
+    this.stopPlay();
+    this.stopBuzz();
+    if (this.abortController) this.abortController.abort();
+  }
 
   clearTimers = () => { (this.timers||[]).forEach(clearInterval); this.timers = []; };
 
@@ -250,6 +293,8 @@ class Component extends DCLogic {
     this.abortController = controller;
     this.clearTimers();
 
+    this.stopPlay();
+    this.stopBuzz();
     this.setState({stage:'processing', file:file.name, apiResult:null, errorMessage:null, step:0, elapsedMs:0, scan:null, drop:false, mode:null});
     this.timers = [setInterval(() => {
       this.setState(s => ({ step: (s.step + 1) % MSGS.length, elapsedMs: s.elapsedMs + 1300 }));
@@ -298,23 +343,123 @@ class Component extends DCLogic {
   backToUpload = () => {
     if (this.abortController) this.abortController.abort();
     this.clearTimers();
+    this.stopPlay();
+    this.stopBuzz();
     this.setState({stage:'upload', mode:null, scan:null, file:'', apiResult:null, errorMessage:null});
+  };
+
+  goRead = () => { this.stopPlay(); this.stopBuzz(); this.setState({mode:'READ'}); };
+
+  // Which real backend-verified event (if any) sits at this point index --
+  // local_extrema first, falling back to the global range max/min so even a
+  // monotonic chart (no interior peaks/valleys) still gets an edge burst,
+  // matching what the READ tab already tags as HIGH/LOW.
+  _landmarkAt = (idx) => {
+    const series = this.state.apiResult && this.state.apiResult.analysis.series[0];
+    if (!series) return null;
+    const local = series.local_extrema || [];
+    for (const ex of local) {
+      if (ex.index === idx) return { kind: ex.type === 'peak' ? 'peak' : 'trough' };
+    }
+    if (idx === this._hiIdx) return { kind: 'peak' };
+    if (idx === this._loIdx) return { kind: 'trough' };
+    return null;
+  };
+
+  setLevel = (idx) => {
+    if (idx === this.state.level) return;
+    clearInterval(this._rearmTimer); this._rearmTimer = null;
+    this.setState({level: idx});
+
+    if (idx < 0) { if (navigator.vibrate) navigator.vibrate(0); return; }
+    if (!(this.props.haptics ?? true) || !navigator.vibrate) return;
+
+    const hz = LADDER[idx];
+    navigator.vibrate(train(hz));
+    this._rearmTimer = setInterval(() => {
+      if (this.state.level === idx) navigator.vibrate(train(hz));
+      else { clearInterval(this._rearmTimer); this._rearmTimer = null; }
+    }, CHUNK_MS - 60);
+  };
+
+  stopBuzz = () => {
+    clearInterval(this._rearmTimer); this._rearmTimer = null;
+    if (navigator.vibrate) navigator.vibrate(0);
+    if (this.state.level !== -1) this.setState({level: -1});
+  };
+
+  fireLandmark = (kind) => {
+    clearInterval(this._rearmTimer); this._rearmTimer = null;
+    this.setState({level: -1});
+    if ((this.props.haptics ?? true) && navigator.vibrate) {
+      navigator.vibrate(kind === 'peak' ? [30,60,30,60,30] : [30,60,30]);
+    }
+  };
+
+  // Shared by manual drag (onScan) and auto-Play, so both produce identical
+  // haptic/visual behavior through one code path.
+  applyScanIndex = (idx) => {
+    const pts = this._points;
+    if (!pts || !pts[idx]) return;
+
+    const landmark = this._landmarkAt(idx);
+    if (landmark && idx !== this._lastLandmarkIdx) {
+      this._lastLandmarkIdx = idx;
+      this.fireLandmark(landmark.kind);
+      this.setState({scan: idx});
+      return;
+    }
+    if (!landmark) this._lastLandmarkIdx = null;
+
+    const h = Math.min(1, Math.max(0, (pts[idx].y - this._min) / this._span));
+    this.setLevel(levelForHeight(h));
+    this.setState({scan: idx});
   };
 
   onScan = (e) => {
     const pts = this._points;
     if (!pts || !pts.length) return;
+    if (e.type === 'pointerdown') this.stopPlay();
     if (e.type === 'pointermove' && e.buttons === 0 && e.pointerType === 'mouse' && this.state.scan === null) return;
     const r = e.currentTarget.getBoundingClientRect();
     const rel = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
     const idx = Math.round(rel * (pts.length - 1));
-    if (idx !== this.state.scan && (this.props.haptics ?? true) && navigator.vibrate) {
-      navigator.vibrate(4 + Math.round(Math.abs(pts[idx].y)));
-    }
-    if (idx !== this.state.scan) this.setState({scan: idx});
+    if (idx !== this.state.scan) this.applyScanIndex(idx);
   };
 
-  endScan = () => this.setState({scan:null});
+  endScan = () => {
+    this.stopBuzz();
+    this._lastLandmarkIdx = null;
+    this.setState({scan:null});
+  };
+
+  startPlay = () => {
+    const pts = this._points;
+    if (!pts || pts.length < 2) return;
+    this.stopPlay();
+    this._lastLandmarkIdx = null;
+    this.setState({playing:true});
+    const playStart = Date.now();
+
+    this._playTimer = setInterval(() => {
+      const elapsed = Date.now() - playStart;
+      const p = elapsed / PLAY_MS;
+      if (p >= 1) {
+        this.applyScanIndex(pts.length - 1);
+        this.stopPlay();
+        return;
+      }
+      this.applyScanIndex(Math.round(p * (pts.length - 1)));
+    }, STEP_MS);
+  };
+
+  stopPlay = () => {
+    if (this._playTimer) { clearInterval(this._playTimer); this._playTimer = null; }
+    this.stopBuzz();
+    if (this.state.playing) this.setState({playing:false});
+  };
+
+  togglePlay = () => { if (this.state.playing) this.stopPlay(); else this.startPlay(); };
 
   renderVals(){
     const s = this.state;
@@ -333,7 +478,7 @@ class Component extends DCLogic {
       feelTabBg: mode === 'FEEL' ? '#F2FF49' : 'transparent',
       feelTabFg: mode === 'FEEL' ? '#050505' : '#8E8E88',
       feelTabShadow: mode === 'FEEL' ? '0 6px 20px rgba(242,255,73,.28)' : 'none',
-      goRead: ()=>this.setState({mode:'READ'}),
+      goRead: this.goRead,
       goFeel: ()=>this.setState({mode:'FEEL'}),
       dropGlow: s.drop ? 1 : 0,
       dropOn: ()=>this.setState({drop:true}),
@@ -351,6 +496,11 @@ class Component extends DCLogic {
       reset: this.backToUpload,
       onScan: this.onScan,
       endScan: this.endScan,
+      togglePlay: this.togglePlay,
+      playLabel: s.playing ? 'STOP' : 'PLAY GRAPH',
+      playBg: s.playing ? '#F2FF49' : 'transparent',
+      playFg: s.playing ? '#050505' : '#B9B9B4',
+      playBorder: s.playing ? '#F2FF49' : 'rgba(255,255,255,.18)',
     };
 
     if (s.stage !== 'results' || !s.apiResult) {
@@ -375,12 +525,14 @@ class Component extends DCLogic {
 
     const max = series.range.maximum.y, min = series.range.minimum.y;
     const span = (max - min) || 1;
+    this._min = min; this._span = span;
     const X = i => 22 + i * (356 / Math.max(n - 1, 1));
     const Y = v => 274 - ((v - min) / span) * 240;
     const fmt = v => Number(v).toFixed(2);
 
     const hiIdx = pts.findIndex(p => p.x === series.range.maximum.x);
     const loIdx = pts.findIndex(p => p.x === series.range.minimum.x);
+    this._hiIdx = hiIdx; this._loIdx = loIdx;
 
     const points = pts.map((p, i) => ({
       label: p.x,
