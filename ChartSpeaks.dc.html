@@ -255,6 +255,24 @@ function levelForHeight(h) {
   return idx;
 }
 
+// Real charts only have a handful of actual data points, so snapping the
+// haptic feed to the nearest one makes long stretches between points feel
+// dead (only the points themselves register). Interpolate height linearly
+// along the same piecewise-linear path the SVG line itself draws, so the
+// haptic level can change continuously anywhere along the line -- matching
+// how shape-tracker.html densely samples its shapes -- instead of only at
+// the handful of real point positions.
+function heightAtFraction(pts, min, span, rel) {
+  const n = pts.length;
+  if (n < 2) return 0.5;
+  const posF = Math.min(n - 1, Math.max(0, rel * (n - 1)));
+  const i0 = Math.floor(posF);
+  const i1 = Math.min(n - 1, i0 + 1);
+  const frac = posF - i0;
+  const y = pts[i0].y + (pts[i1].y - pts[i0].y) * frac;
+  return Math.min(1, Math.max(0, (y - min) / span));
+}
+
 const PLAY_MS = 4000;
 const STEP_MS = 40;
 
@@ -397,23 +415,27 @@ class Component extends DCLogic {
   };
 
   // Shared by manual drag (onScan) and auto-Play, so both produce identical
-  // haptic/visual behavior through one code path.
-  applyScanIndex = (idx) => {
+  // haptic/visual behavior through one code path. `idx` (nearest real data
+  // point) drives the visual label/tooltip and landmark detection; `rel`
+  // (continuous 0..1 position along the whole line) drives the haptic feed,
+  // so the vibration can change smoothly between points, not just at them.
+  applyScanIndex = (idx, rel) => {
     const pts = this._points;
     if (!pts || !pts[idx]) return;
+    if (rel === undefined) rel = idx / Math.max(1, pts.length - 1);
 
     const landmark = this._landmarkAt(idx);
     if (landmark && idx !== this._lastLandmarkIdx) {
       this._lastLandmarkIdx = idx;
       this.fireLandmark(landmark.kind);
-      this.setState({scan: idx});
+      if (idx !== this.state.scan) this.setState({scan: idx});
       return;
     }
     if (!landmark) this._lastLandmarkIdx = null;
 
-    const h = Math.min(1, Math.max(0, (pts[idx].y - this._min) / this._span));
+    const h = heightAtFraction(pts, this._min, this._span, rel);
     this.setLevel(levelForHeight(h));
-    this.setState({scan: idx});
+    if (idx !== this.state.scan) this.setState({scan: idx});
   };
 
   onScan = (e) => {
@@ -424,7 +446,7 @@ class Component extends DCLogic {
     const r = e.currentTarget.getBoundingClientRect();
     const rel = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
     const idx = Math.round(rel * (pts.length - 1));
-    if (idx !== this.state.scan) this.applyScanIndex(idx);
+    this.applyScanIndex(idx, rel);
   };
 
   endScan = () => {
@@ -445,11 +467,11 @@ class Component extends DCLogic {
       const elapsed = Date.now() - playStart;
       const p = elapsed / PLAY_MS;
       if (p >= 1) {
-        this.applyScanIndex(pts.length - 1);
+        this.applyScanIndex(pts.length - 1, 1);
         this.stopPlay();
         return;
       }
-      this.applyScanIndex(Math.round(p * (pts.length - 1)));
+      this.applyScanIndex(Math.round(p * (pts.length - 1)), p);
     }, STEP_MS);
   };
 
