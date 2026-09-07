@@ -111,7 +111,11 @@ a:hover{color:#ffffff}
         <sc-if value="{{ isRead }}" hint-placeholder-val="{{ true }}">
           <article style="display:flex;flex-direction:column;gap:20px;padding:22px 20px;border:1px solid rgba(255,255,255,.12);border-radius:22px;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)">
             <h3 style="margin:0;font-size:19px;font-weight:700;line-height:1.3;color:#fff">{{ title }}</h3>
-            <p style="margin:0;font-size:15px;line-height:1.65;color:#E4E4DE">{{ summary }}</p>
+            <p role="status" aria-live="polite" style="margin:0;font-size:15px;line-height:1.65;color:#E4E4DE">{{ summary }}</p>
+
+            <sc-if value="{{ speechOk }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ toggleSpeak }}" aria-label="{{ speakAria }}" style="align-self:flex-start;padding:11px 16px;min-height:44px;border:1px solid {{ speakBorder }};border-radius:12px;background:{{ speakBg }};color:{{ speakFg }};font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer;font-weight:700">{{ speakLabel }}</button>
+            </sc-if>
 
             <div style="display:flex;flex-direction:column;gap:8px">
               <h3 style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;color:#8E8E88">EXTREMA</h3>
@@ -283,12 +287,13 @@ const PLAY_MS = 4000;
 const STEP_MS = 40;
 
 class Component extends DCLogic {
-  state = { stage:'upload', mode:null, drop:false, file:'', scan:null, scanRel:null, apiResult:null, errorMessage:null, step:0, elapsedMs:0, level:-1, playing:false };
+  state = { stage:'upload', mode:null, drop:false, file:'', scan:null, scanRel:null, apiResult:null, errorMessage:null, step:0, elapsedMs:0, level:-1, playing:false, speaking:false };
 
   componentWillUnmount(){
     this.clearTimers();
     this.stopPlay();
     this.stopBuzz();
+    this.stopSpeak();
     if (this.abortController) this.abortController.abort();
   }
 
@@ -319,6 +324,7 @@ class Component extends DCLogic {
 
     this.stopPlay();
     this.stopBuzz();
+    this.stopSpeak();
     this.setState({stage:'processing', file:file.name, apiResult:null, errorMessage:null, step:0, elapsedMs:0, scan:null, scanRel:null, drop:false, mode:null});
     this.timers = [setInterval(() => {
       this.setState(s => ({ step: (s.step + 1) % MSGS.length, elapsedMs: s.elapsedMs + 1300 }));
@@ -369,10 +375,67 @@ class Component extends DCLogic {
     this.clearTimers();
     this.stopPlay();
     this.stopBuzz();
+    this.stopSpeak();
     this.setState({stage:'upload', mode:null, scan:null, scanRel:null, file:'', apiResult:null, errorMessage:null});
   };
 
   goRead = () => { this.stopPlay(); this.stopBuzz(); this.setState({mode:'READ'}); };
+
+  // ---- READ tab speech -------------------------------------------------
+  // Uses the browser's built-in speech engine (SpeechSynthesis). No API key,
+  // no network, no cost, and it keeps working offline -- the narration text
+  // is already in the page by the time this runs.
+  //
+  // This button is deliberately OPT-IN. Screen reader users already have a
+  // voice they've tuned, and the summary paragraph is a polite live region,
+  // so their own reader announces the narration when it arrives. Speaking it
+  // again here would talk over them. The button exists for everyone else.
+  _speechAvailable = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+  startSpeak = (text) => {
+    if (!this._speechAvailable() || !text) return;
+    this.stopSpeak();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.lang = document.documentElement.lang || 'en-US';
+    // onend covers a natural finish; onerror covers a voice that fails to
+    // load. Without both, the button can get stuck reading STOP forever.
+    utterance.onend = () => this._speechEnded();
+    utterance.onerror = () => this._speechEnded();
+
+    this._utterance = utterance;
+    this.setState({speaking:true});
+    window.speechSynthesis.speak(utterance);
+
+    // Chrome silently stops speaking after ~15 seconds unless the engine is
+    // nudged. A full narration runs longer than that, so pump it until the
+    // utterance actually ends.
+    this._speechPump = setInterval(() => {
+      if (!window.speechSynthesis.speaking) { this._speechEnded(); return; }
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }, 10000);
+  };
+
+  _speechEnded = () => {
+    clearInterval(this._speechPump); this._speechPump = null;
+    this._utterance = null;
+    if (this.state.speaking) this.setState({speaking:false});
+  };
+
+  stopSpeak = () => {
+    if (!this._speechAvailable()) return;
+    clearInterval(this._speechPump); this._speechPump = null;
+    window.speechSynthesis.cancel();
+    this._utterance = null;
+    if (this.state.speaking) this.setState({speaking:false});
+  };
+
+  toggleSpeak = () => {
+    if (this.state.speaking) this.stopSpeak();
+    else this.startSpeak(this._narrationText);
+  };
 
   // Which real backend-verified event (if any) sits at this point index --
   // local_extrema first, falling back to the global range max/min so even a
@@ -508,7 +571,7 @@ class Component extends DCLogic {
       feelTabFg: mode === 'FEEL' ? '#050505' : '#8E8E88',
       feelTabShadow: mode === 'FEEL' ? '0 6px 20px rgba(242,255,73,.28)' : 'none',
       goRead: this.goRead,
-      goFeel: ()=>this.setState({mode:'FEEL'}),
+      goFeel: ()=>{ this.stopSpeak(); this.setState({mode:'FEEL'}); },
       dropGlow: s.drop ? 1 : 0,
       dropOn: ()=>this.setState({drop:true}),
       dropOff: ()=>this.setState({drop:false}),
@@ -530,10 +593,18 @@ class Component extends DCLogic {
       playBg: s.playing ? '#F2FF49' : 'transparent',
       playFg: s.playing ? '#050505' : '#B9B9B4',
       playBorder: s.playing ? '#F2FF49' : 'rgba(255,255,255,.18)',
+      speechOk: this._speechAvailable(),
+      toggleSpeak: this.toggleSpeak,
+      speakLabel: s.speaking ? 'STOP' : 'PLAY NARRATION',
+      speakAria: s.speaking ? 'Stop the spoken narration' : 'Play the spoken narration',
+      speakBg: s.speaking ? '#F2FF49' : 'transparent',
+      speakFg: s.speaking ? '#050505' : '#B9B9B4',
+      speakBorder: s.speaking ? '#F2FF49' : 'rgba(255,255,255,.18)',
     };
 
     if (s.stage !== 'results' || !s.apiResult) {
       this._points = null;
+      this._narrationText = '';
       return {
         ...base,
         title:'', subtitle:'', summary:'',
@@ -547,6 +618,9 @@ class Component extends DCLogic {
     const result = s.apiResult;
     const series = result.analysis.series[0];
     const narration = (result.narrations || []).find(n => n.series_id === series.series_id) || (result.narrations || [])[0] || { text: '' };
+    // Kept off state so toggleSpeak can read the current narration without
+    // the button needing the text threaded through the template.
+    this._narrationText = narration.text || '';
 
     const pts = reconstructPoints(series);
     this._points = pts;
