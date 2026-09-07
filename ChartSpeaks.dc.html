@@ -262,14 +262,20 @@ function levelForHeight(h) {
 // haptic level can change continuously anywhere along the line -- matching
 // how shape-tracker.html densely samples its shapes -- instead of only at
 // the handful of real point positions.
-function heightAtFraction(pts, min, span, rel) {
+function interpolateSeg(pts, rel) {
   const n = pts.length;
-  if (n < 2) return 0.5;
+  if (n < 2) return { y: pts[0] ? pts[0].y : 0, i0: 0, i1: 0, frac: 0 };
   const posF = Math.min(n - 1, Math.max(0, rel * (n - 1)));
   const i0 = Math.floor(posF);
   const i1 = Math.min(n - 1, i0 + 1);
   const frac = posF - i0;
   const y = pts[i0].y + (pts[i1].y - pts[i0].y) * frac;
+  return { y, i0, i1, frac };
+}
+
+function heightAtFraction(pts, min, span, rel) {
+  if (pts.length < 2) return 0.5;
+  const y = interpolateSeg(pts, rel).y;
   return Math.min(1, Math.max(0, (y - min) / span));
 }
 
@@ -277,7 +283,7 @@ const PLAY_MS = 4000;
 const STEP_MS = 40;
 
 class Component extends DCLogic {
-  state = { stage:'upload', mode:null, drop:false, file:'', scan:null, apiResult:null, errorMessage:null, step:0, elapsedMs:0, level:-1, playing:false };
+  state = { stage:'upload', mode:null, drop:false, file:'', scan:null, scanRel:null, apiResult:null, errorMessage:null, step:0, elapsedMs:0, level:-1, playing:false };
 
   componentWillUnmount(){
     this.clearTimers();
@@ -313,7 +319,7 @@ class Component extends DCLogic {
 
     this.stopPlay();
     this.stopBuzz();
-    this.setState({stage:'processing', file:file.name, apiResult:null, errorMessage:null, step:0, elapsedMs:0, scan:null, drop:false, mode:null});
+    this.setState({stage:'processing', file:file.name, apiResult:null, errorMessage:null, step:0, elapsedMs:0, scan:null, scanRel:null, drop:false, mode:null});
     this.timers = [setInterval(() => {
       this.setState(s => ({ step: (s.step + 1) % MSGS.length, elapsedMs: s.elapsedMs + 1300 }));
     }, 1300)];
@@ -363,7 +369,7 @@ class Component extends DCLogic {
     this.clearTimers();
     this.stopPlay();
     this.stopBuzz();
-    this.setState({stage:'upload', mode:null, scan:null, file:'', apiResult:null, errorMessage:null});
+    this.setState({stage:'upload', mode:null, scan:null, scanRel:null, file:'', apiResult:null, errorMessage:null});
   };
 
   goRead = () => { this.stopPlay(); this.stopBuzz(); this.setState({mode:'READ'}); };
@@ -423,19 +429,20 @@ class Component extends DCLogic {
     const pts = this._points;
     if (!pts || !pts[idx]) return;
     if (rel === undefined) rel = idx / Math.max(1, pts.length - 1);
+    rel = Math.min(1, Math.max(0, rel));
 
     const landmark = this._landmarkAt(idx);
     if (landmark && idx !== this._lastLandmarkIdx) {
       this._lastLandmarkIdx = idx;
       this.fireLandmark(landmark.kind);
-      if (idx !== this.state.scan) this.setState({scan: idx});
+      this.setState({scan: idx, scanRel: rel});
       return;
     }
     if (!landmark) this._lastLandmarkIdx = null;
 
     const h = heightAtFraction(pts, this._min, this._span, rel);
     this.setLevel(levelForHeight(h));
-    if (idx !== this.state.scan) this.setState({scan: idx});
+    this.setState({scan: idx, scanRel: rel});
   };
 
   onScan = (e) => {
@@ -452,7 +459,7 @@ class Component extends DCLogic {
   endScan = () => {
     this.stopBuzz();
     this._lastLandmarkIdx = null;
-    this.setState({scan:null});
+    this.setState({scan:null, scanRel:null});
   };
 
   startPlay = () => {
@@ -569,9 +576,17 @@ class Component extends DCLogic {
     const areaPts = '22,296 ' + linePts + ' 378,296';
 
     const si = s.scan;
-    const active = si !== null && si !== undefined && !!pts[si];
-    const prev = active && si > 0 ? pts[si - 1].y : null;
-    const delta = active && prev !== null ? pts[si].y - prev : 0;
+    const active = si !== null && si !== undefined && s.scanRel !== null && s.scanRel !== undefined && !!pts[si];
+    // Continuous position along the whole line (not snapped to the nearest
+    // real point) drives everything visual/numeric, so the tracer follows
+    // the finger/Play sweep smoothly instead of jumping between the
+    // handful of real data points. `si`/`pts[si]` (nearest point) is kept
+    // only for the point label and position readout, which are inherently
+    // discrete ("TUES", "3/5").
+    const seg = active ? interpolateSeg(pts, s.scanRel) : null;
+    const yCont = seg ? seg.y : 0;
+    const slope = seg ? pts[seg.i1].y - pts[seg.i0].y : 0;
+    const XcPct = active ? (Math.min(1, Math.max(0, s.scanRel)) * (356/400) + 22/400) * 100 : 50;
 
     return {
       ...base,
@@ -584,13 +599,13 @@ class Component extends DCLogic {
       points, linePts, areaPts,
       scanOpacity: active ? 1 : 0,
       scanIdle: !active,
-      scanLeft: active ? (X(si)/400*100).toFixed(2)+'%' : '50%',
-      tipLeft: active ? Math.min(86, Math.max(14, X(si)/400*100)).toFixed(2)+'%' : '50%',
+      scanLeft: active ? XcPct.toFixed(2)+'%' : '50%',
+      tipLeft: active ? Math.min(86, Math.max(14, XcPct)).toFixed(2)+'%' : '50%',
       scanLabel: active ? String(pts[si].x).toUpperCase() : '—',
-      scanValue: active ? fmt(pts[si].y) : '—',
+      scanValue: active ? fmt(yCont) : '—',
       scanPos: active ? (si+1) + '/' + n : '—',
-      scanSlope: active ? (delta >= 0 ? '+' : '') + delta.toFixed(2) : '—',
-      scanPulse: active ? Math.round(20 + (pts[si].y - min)/span*80) + '%' : '—',
+      scanSlope: active ? (slope >= 0 ? '+' : '') + slope.toFixed(2) : '—',
+      scanPulse: active ? Math.round(20 + Math.min(1, Math.max(0, (yCont - min)/span))*80) + '%' : '—',
     };
   }
 }
