@@ -1,4 +1,4 @@
-﻿# =========================================================
+# =========================================================
 # ChartSpeak -- unified project requirements
 # One shared environment for the whole team, so Person 1's
 # extraction pipeline and Person 2's analysis engine (this repo)
@@ -41,6 +41,27 @@ scipy==1.17.1
 # just "resolves" -- we started the server and made real requests).
 fastapi==0.125.0
 uvicorn==0.52.4
+
+# Required for the /analyze-file endpoint (Stage 13, frontend
+# integration) -- FastAPI's UploadFile/File() multipart form parsing
+# depends on this package being installed; it raises at import time
+# otherwise.
+python-multipart==0.0.32
+
+# Required for image_extractor.py (Stage 14, real JPG/PNG -> ChartCSR
+# digitization) -- this is a thin Python wrapper around the Tesseract
+# OCR engine, used to read axis tick labels and titles off the chart
+# image itself.
+#
+# IMPORTANT: pytesseract does NOT bundle the OCR engine. You must also
+# install the "tesseract-ocr" SYSTEM binary separately (this is not a
+# pip package):
+#   Debian/Ubuntu:  sudo apt-get install tesseract-ocr
+#   macOS:          brew install tesseract
+#   Windows:        https://github.com/UB-Mannheim/tesseract/wiki
+# If pytesseract can't find the binary, either put it on PATH or set
+# `pytesseract.pytesseract.tesseract_cmd` to its install location.
+pytesseract==0.3.13
 
 # Optional -- only needed if you set ANTHROPIC_API_KEY to enable the
 # Stage 10 LLM narration path. Everything works without it (falls back
