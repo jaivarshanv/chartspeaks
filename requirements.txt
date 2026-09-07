@@ -1,4 +1,12 @@
-﻿opencv-python>=4.8.0
+﻿# =========================================================
+# ChartSpeak -- unified project requirements
+# One shared environment for the whole team, so Person 1's
+# extraction pipeline and Person 2's analysis engine (this repo)
+# can run side by side without two conflicting installs.
+# =========================================================
+
+# ----- Person 1 (Chart4Blind / chart extraction) -----
+opencv-python>=4.8.0
 numpy==1.26.4
 pydantic==2.6.4
 matplotlib==3.8.3
@@ -14,3 +22,27 @@ tqdm
 visualdl
 rapidfuzz
 cython
+
+# ----- Person 2 (ChartSpeak analysis/salience/narration/API) -----
+# numpy and pydantic above are PERSON 1'S exact pins, not the versions
+# this engine was originally built and tested against (numpy 2.4.6,
+# pydantic 2.13.5). We re-ran every stage (1-11) of this engine under
+# exactly these downgraded versions and got byte-for-byte identical
+# output -- see the write-up for how this was verified. If a future
+# stage ever needs a numpy/pydantic feature that genuinely requires a
+# newer version, that's a conversation to have with Person 1 before
+# just bumping the pin here, since it's now a shared number.
+scipy==1.17.1
+
+# IMPORTANT: fastapi must stay below 0.130 while pydantic is pinned to
+# 2.6.4 -- fastapi 0.130+ requires pydantic>=2.7.0, and 0.138+ requires
+# pydantic>=2.9.0, which would conflict with Person 1's pin above. This
+# exact version was verified to actually run our API correctly (not
+# just "resolves" -- we started the server and made real requests).
+fastapi==0.125.0
+uvicorn==0.52.4
+
+# Optional -- only needed if you set ANTHROPIC_API_KEY to enable the
+# Stage 10 LLM narration path. Everything works without it (falls back
+# to template narration automatically). Uncomment to install:
+# anthropic

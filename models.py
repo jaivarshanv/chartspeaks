@@ -403,6 +403,61 @@ class SalienceSummary(BaseModel):
     counts_by_level: Dict[str, int]
 
 
+class NarrationFacts(BaseModel):
+    """
+    STAGE 10: the ONLY data that is allowed to reach the LLM.
+
+    This is deliberately a small, whitelisted subset of everything we know
+    about a chart -- not the full AnalysisResult, and not the full
+    SalienceSummary. If a number isn't a field on this model, an LLM
+    prompt built from it literally cannot mention that number, because it
+    was never given to it. This is the main way we enforce "the LLM may
+    only explain verified facts, never invent numbers": by controlling
+    what it's allowed to see, not only by policing what it says after the
+    fact (though we also do that -- see narrator.py's grounding check).
+    """
+    chart_id: str
+    series_id: str
+    chart_title: str
+    chart_type: str
+    series_name: str
+    x_label: str
+    x_unit: Optional[str] = None
+    x_first: str
+    x_last: str
+    y_label: str
+    y_unit: Optional[str] = None
+    trend_direction: str
+    trend_slope: float
+    trend_strength: float
+    range_min: ExtremePoint
+    range_max: ExtremePoint
+    headline_events: List[CandidateEvent]
+
+
+class NarrationResult(BaseModel):
+    """
+    STAGE 10: the final output of narrator.py -- ready to hand to
+    text-to-speech (Person 3's job) or display as text, plus a record of
+    HOW it was produced, for debugging and for honesty with the user
+    about whether the LLM was actually involved.
+
+    source: "template" (zero LLM involvement, pure string formatting on
+        verified facts) or "llm" (an LLM phrased the facts in natural
+        language, and it passed the grounding check below).
+    grounded: True if every number in `text` was traced back to
+        NarrationFacts. Always True for source="template" (a template
+        cannot introduce a number that wasn't in the facts). For
+        source="llm", this is the result of narrator.py's grounding
+        check, not a formal proof -- see narrator.py for its limits.
+    """
+    chart_id: str
+    series_id: str
+    text: str
+    source: str
+    grounded: bool
+
+
 class AnalysisResult(BaseModel):
     """
     STAGE 7 CHANGE -- new top-level shape.
@@ -425,3 +480,20 @@ class AnalysisResult(BaseModel):
     chart_id: str
     series: List[SeriesAnalysis]
     comparison: Optional[MultiSeriesComparison] = None
+
+
+class ChartSpeakResponse(BaseModel):
+    """
+    STAGE 11: the single object the API hands back for one chart.
+
+    This is deliberately just a bundle of things every earlier stage
+    already produces -- analyze_chart()'s AnalysisResult, one
+    SalienceSummary per series (Stage 9), and one NarrationResult per
+    series (Stage 10). The API doesn't compute anything new; it just
+    calls the same pipeline main.py has been calling all along and wraps
+    the result in one response object.
+    """
+    chart_id: str
+    analysis: AnalysisResult
+    salience_summaries: List[SalienceSummary]
+    narrations: List[NarrationResult]
