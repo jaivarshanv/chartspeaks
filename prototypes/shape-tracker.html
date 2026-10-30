@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Shape reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#161C24; --panel:#1E2630; --panel-2:#26313D;
+    --trace:#E8A33D; --cool:#5FB0C4; --text:#D8DEE6; --muted:#7C8896;
+    --good:#7FBF7F; --bad:#D9776B; --line:#2E3945;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--ink);color:var(--text);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  body{padding:14px 14px 60px;max-width:560px;margin:0 auto;}
+  h1{font-size:19px;font-weight:600;margin:0 0 2px;letter-spacing:-0.01em;}
+  .sub{color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 14px;}
+  #support{display:none;background:#3A2A26;border:1px solid #5C3D34;color:#F0C2B6;
+    font-size:13px;line-height:1.45;padding:10px 12px;border-radius:8px;margin-bottom:14px;}
+  #stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  canvas{display:block;width:100%;height:220px;}
+
+  /* the scrub slider, made big enough to drag comfortably with a thumb */
+  .scrubWrap{margin-top:14px;padding:14px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;}
+  .scrubWrap .label{font-size:13px;color:var(--muted);margin-bottom:10px;}
+  #scrub{width:100%;height:44px;accent-color:var(--trace);touch-action:none;}
+
+  .levels{display:flex;gap:4px;margin-top:12px;}
+  .levels div{flex:1;height:34px;border-radius:5px;background:var(--panel-2);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);}
+  .levels div.live{background:var(--trace);color:#14181E;border-color:var(--trace);font-weight:600;}
+
+  .readout{display:flex;justify-content:space-between;align-items:baseline;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);padding:10px 2px 0;}
+  .readout b{color:var(--cool);font-weight:500;}
+
+  .block{margin-top:16px;}
+  .block > .label{font-size:13px;color:var(--muted);margin-bottom:8px;}
+  .row{display:flex;flex-wrap:wrap;gap:7px;}
+  button{font-family:inherit;font-size:13px;color:var(--text);background:var(--panel-2);
+    border:1px solid var(--line);padding:10px 13px;border-radius:7px;cursor:pointer;}
+  button:active{background:#31404F;}
+  button.on{border-color:var(--trace);color:var(--trace);background:#2C3846;}
+  button.big{background:var(--trace);color:#14181E;border-color:var(--trace);
+    font-weight:600;padding:12px 18px;}
+  button:focus-visible{outline:2px solid var(--cool);outline-offset:2px;}
+  .card{margin-top:20px;padding:14px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;}
+  .card h2{font-size:15px;font-weight:600;margin:0 0 4px;}
+  .card p{font-size:13px;color:var(--muted);line-height:1.45;margin:0 0 12px;}
+  #verdict{font-size:14px;margin-top:12px;min-height:20px;line-height:1.4;}
+  .ok{color:var(--good);} .no{color:var(--bad);}
+  .out{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);
+    margin-top:10px;line-height:1.7;white-space:pre-line;}
+  #log{max-height:140px;overflow-y:auto;font-family:"IBM Plex Mono",monospace;
+    font-size:11px;color:var(--muted);line-height:1.7;margin-top:10px;}
+  #log div{border-top:1px solid var(--line);padding-top:4px;}
+  .note{margin-top:20px;font-size:12px;color:var(--muted);line-height:1.6;}
+  .note b{color:var(--text);font-weight:500;}
+</style>
+</head>
+<body>
+
+<h1>Shape reader</h1>
+<p class="sub">Drag the slider across the shape. Height becomes tick speed: fast ticking high, slow ticking low. No tracing, no intensity.</p>
+
+<div id="support"></div>
+
+<div id="stage"><canvas id="chart"></canvas></div>
+
+<div class="scrubWrap">
+  <div class="label">Drag left to right</div>
+  <input type="range" id="scrub" min="0" max="1000" step="1" value="0">
+  <div class="row" style="margin-top:12px;">
+    <button class="big" id="playBtn">Play shape</button>
+    <button id="sp2">2s</button>
+    <button id="sp4" class="on">4s</button>
+    <button id="sp8">8s</button>
+    <button id="loopBtn">Loop off</button>
+  </div>
+  <div class="levels">
+    <div></div><div></div><div></div><div></div><div></div><div></div>
+  </div>
+</div>
+
+<div class="readout">
+  <span>pos <b id="rPos">—</b></span>
+  <span>height <b id="rH">—</b></span>
+  <span>rate <b id="rRate">—</b></span>
+</div>
+
+<div class="block">
+  <div class="label">Set</div>
+  <div class="row">
+    <button id="catGraph" class="on">Graphs</button>
+    <button id="catOutline">Outlines</button>
+    <button id="catAll">Both</button>
+  </div>
+</div>
+
+<div class="block">
+  <div class="label">Shape</div>
+  <div class="row" id="shapeButtons"></div>
+</div>
+
+<div class="block">
+  <div class="label">Levels</div>
+  <div class="row">
+    <button id="lv2">2</button>
+    <button id="lv3">3</button>
+    <button id="lv4" class="on">4</button>
+    <button id="lv5">5</button>
+    <button id="lv6">6</button>
+  </div>
+</div>
+
+<div class="block">
+  <div class="label">Lowest rate <span style="font-size:11px;">(troughs are the weak spot)</span></div>
+  <div class="row">
+    <button id="fl2" class="on">floor 2Hz</button>
+    <button id="fl4">floor 4Hz</button>
+    <button id="fl6">floor 6Hz</button>
+    <button id="lowTex">Doublet low: off</button>
+  </div>
+</div>
+
+<div class="block">
+  <div class="row">
+    <button id="toggleShape" class="on">Shape visible</button>
+    <button id="toggleLand">Landmarks off</button>
+    <button id="stopBuzz">Stop vibration</button>
+  </div>
+</div>
+
+<!-- ============ BLIND TEST ============ -->
+<div class="card">
+  <h2>Blind identification test</h2>
+  <p>Hides the shape and picks one at random. Scrub it, then name it. Scored per shape, with chance shown for comparison.</p>
+  <div class="row"><button class="big" id="startTest">Start a round</button></div>
+  <div class="row" id="guessButtons" style="margin-top:10px;display:none;"></div>
+  <div id="verdict"></div>
+  <div class="out" id="score"></div>
+  <div id="log"></div>
+</div>
+
+<!-- ============ EXPORT ============ -->
+<div class="card">
+  <h2>Export results</h2>
+  <p>Device, settings and every trial.</p>
+  <textarea id="notes" placeholder="Notes" style="width:100%;min-height:60px;background:var(--ink);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:10px;font-family:inherit;font-size:13px;"></textarea>
+  <div class="row" style="margin-top:12px;">
+    <button class="big" id="exportDownload">Download JSON</button>
+    <button id="exportCopy">Copy</button>
+    <button id="exportShow">Preview</button>
+  </div>
+  <div class="out" id="exportOut" style="max-height:200px;overflow-y:auto;"></div>
+</div>
+
+<p class="note">
+  <b>Why rate and not strength.</b> The web vibration API has no amplitude control, and on this phone's motor duty-cycle steps tested at chance while tick rate tested reliably. So height is carried by how fast the ticks repeat, using only the four rates that were actually distinguishable.<br><br>
+  <b>Why it only changes at the boundaries.</b> Calling vibrate() again cancels whatever is running, so re-firing every frame restarts the motor before it spins up and everything smears into flat static. Here a level is fired once and left alone until you cross into a different one.
+</p>
+
+<script>
+/* =====================================================================
+   1. SHAPES
+   Each is a function of t (0 = left, 1 = right) returning height 0..1.
+   ===================================================================== */
+const SHAPES = [
+  // ---- graphs: height along the x axis ----
+  { id:"rise",   name:"Rising",    kind:"graph", fn: t => t },
+  { id:"fall",   name:"Falling",   kind:"graph", fn: t => 1 - t },
+  { id:"peak",   name:"Peak",      kind:"graph", fn: t => t < 0.5 ? 2*t : 2 - 2*t },
+  { id:"valley", name:"Valley",    kind:"graph", fn: t => t < 0.5 ? 1 - 2*t : 2*t - 1 },
+  { id:"flat",   name:"Flat",      kind:"graph", fn: t => 0.5 },
+  { id:"step",   name:"Step up",   kind:"graph", fn: t => t < 0.5 ? 0.15 : 0.85 },
+  { id:"spike",  name:"Spike",     kind:"graph", fn: t => 0.1 + 0.85*Math.exp(-Math.pow((t-0.5)/0.08, 2)) },
+  { id:"double", name:"Two humps", kind:"graph", fn: t => Math.abs(Math.sin(t * Math.PI * 2)) },
+
+  // ---- outlines: distance from the centre, walked around the edge ----
+  { id:"circle",    name:"Circle",    kind:"outline", corners: null, sides: 240 },
+  { id:"triangle",  name:"Triangle",  kind:"outline", corners: 3 },
+  { id:"square",    name:"Square",    kind:"outline", corners: 4 },
+  { id:"rectangle", name:"Rectangle", kind:"outline", verts: [
+      {x:0.12,y:0.34},{x:0.88,y:0.34},{x:0.88,y:0.66},{x:0.12,y:0.66} ] },
+  { id:"pentagon",  name:"Pentagon",  kind:"outline", corners: 5 },
+  { id:"hexagon",   name:"Hexagon",   kind:"outline", corners: 6 },
+  { id:"star",      name:"Star",      kind:"outline", corners: 5, star: true },
+];
+
+/* ---------------------------------------------------------------
+   Outlines are built as a ring of points, then walked at a constant
+   speed around the edge. Walking by equal steps of distance matters:
+   stepping by angle instead would race through the corners of a
+   square and crawl along its sides.
+   --------------------------------------------------------------- */
+
+function outlinePoints(shape){
+  const pts = [];
+  if(shape.corners === null){                       // circle
+    for(let i = 0; i <= shape.sides; i++){
+      const a = (i/shape.sides) * Math.PI*2 - Math.PI/2;
+      pts.push({ x: 0.5 + 0.36*Math.cos(a), y: 0.5 + 0.36*Math.sin(a) });
+    }
+    return pts;
+  }
+
+  let verts = [];
+  if(shape.verts){
+    verts = shape.verts;                            // given outright, e.g. a rectangle
+  } else if(shape.star){
+    // alternate far and near points to make the spikes
+    const n = shape.corners;
+    for(let i = 0; i < n*2; i++){
+      const a = (i/(n*2)) * Math.PI*2 - Math.PI/2;
+      const r = (i % 2 === 0) ? 0.40 : 0.17;
+      verts.push({ x: 0.5 + r*Math.cos(a), y: 0.5 + r*Math.sin(a) });
+    }
+  } else {
+    const n = shape.corners;
+    for(let i = 0; i < n; i++){
+      const a = (i/n) * Math.PI*2 - Math.PI/2;
+      verts.push({ x: 0.5 + 0.40*Math.cos(a), y: 0.5 + 0.40*Math.sin(a) });
+    }
+  }
+
+  // walk each edge in small equal steps
+  const all = verts.concat([verts[0]]);
+  for(let i = 0; i < all.length-1; i++){
+    const steps = 60;
+    for(let k = 0; k < steps; k++){
+      const t = k/steps;
+      pts.push({ x: all[i].x + (all[i+1].x-all[i].x)*t,
+                 y: all[i].y + (all[i+1].y-all[i].y)*t });
+    }
+  }
+  pts.push(all[0]);
+  return pts;
+}
+
+// Resample a ring so the points sit at equal distances apart.
+function resampleEven(pts, n){
+  const cum = [0];
+  for(let i = 1; i < pts.length; i++){
+    cum.push(cum[i-1] + Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+  }
+  const total = cum[cum.length-1];
+  const out = [];
+  let j = 0;
+  for(let i = 0; i < n; i++){
+    const want = (i/(n-1)) * total;
+    while(j < cum.length-2 && cum[j+1] < want) j++;
+    const seg = Math.max(1e-9, cum[j+1]-cum[j]);
+    const f = (want - cum[j]) / seg;
+    out.push({ x: pts[j].x + (pts[j+1].x-pts[j].x)*f,
+               y: pts[j].y + (pts[j+1].y-pts[j].y)*f });
+  }
+  return out;
+}
+
+// Distance from the centre at each point, which is what gets encoded.
+function radiusProfile(ring){
+  let cx = 0, cy = 0;
+  ring.forEach(p => { cx += p.x; cy += p.y; });
+  cx /= ring.length; cy /= ring.length;
+  return ring.map(p => Math.hypot(p.x-cx, p.y-cy));
+}
+
+const SAMPLES = 300;
+let shape = SHAPES[0];
+let ys = [];
+let shapeVisible = true;
+let showLandmarks = false;
+let levelCount = 4;
+
+// Ladders. 2x spacing is what tested reliably on this device; the 1.6x
+// ladder packs in more levels but sits at the edge of what was
+// distinguishable, and anything above roughly 30 Hz risks fusing into
+// one continuous buzz rather than separate ticks.
+const LADDERS = {
+  2: [2, 16],
+  3: [2, 6, 16],
+  4: [2, 4, 8, 16],
+  5: [2, 4, 8, 16, 32],            // 2x spacing, one step higher
+  6: [2, 3.2, 5.1, 8.2, 13, 21]    // 1.6x spacing, finer but riskier
+};
+
+/* The bottom of a rate scale is the weak spot: a slow tick and no tick
+   at all feel much the same, so troughs get encoded by near-absence.
+   Two ways out, both switchable so they can be tested rather than
+   assumed.
+
+   floorHz  - lifts the whole ladder so even the lowest level is
+              clearly present. Costs range, buys certainty.
+   lowTexture - makes the bottom level a doublet rhythm instead of
+              sparse single taps, so low reads as different rather
+              than as less. */
+let floorHz = 2;
+let lowTexture = false;
+
+function rates(){
+  const base = LADDERS[levelCount] || LADDERS[4];
+  if(floorHz <= base[0]) return base;
+  // Squeeze the ladder into [floorHz .. top] keeping the same ratios.
+  const lo = base[0], hi = base[base.length-1];
+  return base.map(hz => {
+    const frac = Math.log(hz/lo) / Math.log(hi/lo);       // 0..1 in log space
+    const out = floorHz * Math.pow(hi/floorHz, frac);
+    return Math.round(out * 10) / 10;
+  });
+}
+
+let ring = null;          // the outline points, when the shape is an outline
+
+function sampleShape(s){
+  if(s.kind === "outline"){
+    ring = resampleEven(outlinePoints(s), SAMPLES);
+    return radiusProfile(ring);
+  }
+  ring = null;
+  const out = [];
+  for(let i = 0; i < SAMPLES; i++) out.push(s.fn(i/(SAMPLES-1)));
+  return out;
+}
+
+let yMin = 0, yMax = 1, isFlat = false;
+
+function measureRange(a){
+  yMin = Math.min(...a); yMax = Math.max(...a);
+  const mean = a.reduce((x,y) => x+y, 0) / a.length;
+  const span = yMax - yMin;
+  // Stretching every shape to fill the level range is what makes small
+  // shapes readable - but it also turns rounding noise into a dramatic
+  // sweep. A circle wobbles by a fraction of a percent and would
+  // otherwise be rendered as a full rise and fall. So anything varying
+  // by less than 2% of its own size counts as flat and is sent as one
+  // steady middle level, which is the truthful reading.
+  const relative = Math.abs(mean) > 1e-9 ? span / Math.abs(mean) : span;
+  isFlat = (span < 0.001) || (relative < 0.02);
+}
+
+// Height at position t, stretched to 0..1 across this shape's own range
+// so every shape uses the full set of levels.
+function heightAt(t){
+  if(isFlat) return 0.5;
+  let i = Math.round(t * (SAMPLES-1));
+  if(i < 0) i = 0; if(i > SAMPLES-1) i = SAMPLES-1;
+  const span = yMax - yMin;
+  if(span < 0.001) return 0.5;
+  return (ys[i] - yMin) / span;
+}
+
+// Which level does that height fall into?
+function levelFor(t){
+  const h = heightAt(t);
+  const r = rates();
+  let idx = Math.floor(h * r.length);
+  if(idx > r.length - 1) idx = r.length - 1;
+  if(idx < 0) idx = 0;
+  return idx;
+}
+
+/* Landmarks: peaks and troughs, marked with a distinct burst. */
+let landmarks = [];
+function findLandmarks(a){
+  const found = [];
+  if(isFlat) return found;                  // nothing to mark on a flat shape
+  const span = Math.max(...a) - Math.min(...a);
+  if(span < 0.01) return found;
+  const WIN = 35;
+  for(let i = WIN; i < a.length - WIN; i++){
+    let lo = Infinity, hi = -Infinity;
+    for(let j = i-WIN; j <= i+WIN; j++){ if(a[j]<lo)lo=a[j]; if(a[j]>hi)hi=a[j]; }
+    const isPeak = a[i] >= hi, isTrough = a[i] <= lo;
+    if(!isPeak && !isTrough) continue;
+    const prom = (isPeak ? a[i]-lo : hi-a[i]) / span;
+    if(prom < 0.10) continue;
+    if(found.length && i - found[found.length-1].index < WIN) continue;
+    found.push({ index:i, kind: isPeak ? "peak" : "trough" });
+  }
+  return found;
+}
+
+
+/* =====================================================================
+   2. VIBRATION
+
+   The rule that makes this work: a level is fired ONCE and left
+   running. Calling vibrate() again cancels whatever is playing, so
+   re-firing every frame never lets the motor reach speed and the
+   whole sweep collapses into flat static. Here nothing is sent
+   unless the level actually changes.
+   ===================================================================== */
+
+const canVibrate = typeof navigator.vibrate === "function";
+const CHUNK_MS = 900;        // short, so a missed cancel dies within a second
+const MAX_TICK = 22;         // longest pulse we use
+const MIN_TICK = 8;          // below this a pulse is too short to feel
+
+let currentLevel = -1;       // -1 means nothing playing
+let rearmTimer = null;
+
+// Tick length has to shrink as the rate rises, or the pulse would eat
+// its own gap and the train would fuse into one long buzz. Aim for
+// roughly half on, half off at every rate.
+function tickFor(hz){
+  const half = Math.round(1000 / hz / 2);
+  return Math.max(MIN_TICK, Math.min(MAX_TICK, half));
+}
+
+// Build about a second of ticks at the given rate.
+// isLowest matters only when low-texture is on: the bottom level then
+// plays pairs of taps instead of single ones, so a trough is something
+// you feel rather than something you notice is missing.
+function train(hz, isLowest){
+  const tick = tickFor(hz);
+  const period = Math.round(1000/hz);
+
+  if(isLowest && lowTexture){
+    const inner = 70;                                    // gap inside a pair
+    const after = Math.max(120, period - tick*2 - inner); // gap between pairs
+    const unit = tick*2 + inner + after;
+    const cycles = Math.max(1, Math.round(CHUNK_MS / unit));
+    const pat = [];
+    for(let i = 0; i < cycles; i++){ pat.push(tick, inner, tick, after); }
+    return pat;
+  }
+
+  const gap = Math.max(6, period - tick);
+  const cycles = Math.max(1, Math.round(CHUNK_MS / (tick + gap)));
+  const pat = [];
+  for(let i = 0; i < cycles; i++){ pat.push(tick); pat.push(gap); }
+  return pat;
+}
+
+function setLevel(idx){
+  if(idx === currentLevel) return;      // the whole point: no needless restarts
+  currentLevel = idx;
+  clearInterval(rearmTimer); rearmTimer = null;
+
+  if(idx < 0){ if(canVibrate) navigator.vibrate(0); paintLevels(); return; }
+
+  const hz = rates()[idx];
+  const lowest = (idx === 0);
+  if(canVibrate) navigator.vibrate(train(hz, lowest));
+  rearmTimer = setInterval(() => {
+    if(currentLevel === idx && canVibrate) navigator.vibrate(train(hz, lowest));
+    else { clearInterval(rearmTimer); rearmTimer = null; }
+  }, CHUNK_MS - 60);
+
+  paintLevels();
+}
+
+function stopBuzz(){
+  clearInterval(rearmTimer); rearmTimer = null;
+  currentLevel = -1;
+  if(canVibrate) navigator.vibrate(0);
+  paintLevels();
+}
+
+/* A landmark interrupts the level train briefly, then the level
+   resumes on the next move. Peak is three taps, trough is two. */
+let lastLandmark = null;
+function fireLandmark(kind){
+  clearInterval(rearmTimer); rearmTimer = null;
+  currentLevel = -1;                       // force the level to re-arm afterwards
+  if(canVibrate) navigator.vibrate(kind === "peak" ? [30,60,30,60,30] : [30,60,30]);
+}
+
+
+/* =====================================================================
+   3. THE SLIDER
+   ===================================================================== */
+const scrub = document.getElementById("scrub");
+let pos = 0;
+let active = false;
+
+/* Both dragging and playback funnel through here, so the two feel
+   identical and there is only one place where levels get fired. */
+function applyPosition(p){
+  active = true;
+  pos = p;
+  scrub.value = Math.round(p * 1000);
+
+  if(showLandmarks){
+    const i = Math.round(pos * (SAMPLES-1));
+    const L = landmarks.find(l => Math.abs(i - l.index) < 8);
+    if(L && L !== lastLandmark){
+      lastLandmark = L;
+      fireLandmark(L.kind);
+      render(); draw();
+      return;
+    }
+    if(!L) lastLandmark = null;
+  }
+
+  setLevel(levelFor(pos));
+  render();
+  draw();
+}
+
+function onScrub(){
+  stopPlayback();                       // dragging takes over from playback
+  applyPosition(parseInt(scrub.value, 10) / 1000);
+}
+
+function endScrub(){
+  active = false;
+  stopBuzz();
+  render();
+  draw();
+}
+
+/* =====================================================================
+   PLAYBACK
+   Sweeps the position from left to right on its own. Same code path as
+   dragging, so it fires exactly the same levels in the same order.
+   ===================================================================== */
+let playTimer = null;
+let playStart = 0;
+let playMs = 4000;
+const STEP_MS = 40;
+
+function isPlaying(){ return playTimer !== null; }
+
+function startPlayback(){
+  stopPlayback();
+  lastLandmark = null;
+  currentLevel = -1;                    // force the first level to fire
+  playStart = Date.now();
+
+  playTimer = setInterval(() => {
+    const elapsed = Date.now() - playStart;
+    const p = elapsed / playMs;
+    if(p >= 1){
+      applyPosition(1);
+      if(looping){
+        // brief silence between passes so the end and start do not blur
+        stopBuzz();
+        currentLevel = -1;
+        lastLandmark = null;
+        playStart = Date.now() + 400;
+        return;
+      }
+      stopPlayback();
+      endScrub();
+      return;
+    }
+    if(elapsed < 0) return;   // waiting out the gap between loop passes
+    applyPosition(p);
+  }, STEP_MS);
+
+  setPlayLabel();
+}
+
+function stopPlayback(){
+  if(playTimer === null) return;
+  clearInterval(playTimer);
+  playTimer = null;
+  setPlayLabel();
+}
+
+function setPlayLabel(){
+  const b = document.getElementById("playBtn");
+  b.textContent = isPlaying() ? "Stop" : "Play shape";
+  b.classList.toggle("on", isPlaying());
+}
+
+scrub.addEventListener("input", onScrub);
+scrub.addEventListener("pointerup", endScrub);
+scrub.addEventListener("pointercancel", endScrub);
+scrub.addEventListener("touchend", endScrub);
+scrub.addEventListener("blur", endScrub);
+scrub.addEventListener("keyup", endScrub);
+
+// Safety nets: never leave the motor running.
+["pointerup","touchend","touchcancel","blur"].forEach(ev =>
+  window.addEventListener(ev, () => { if(active) endScrub(); }));
+document.addEventListener("visibilitychange", () => { if(document.hidden) endScrub(); });
+
+document.getElementById("stopBuzz").addEventListener("click", endScrub);
+
+
+document.getElementById("playBtn").addEventListener("click", () => {
+  if(isPlaying()){ stopPlayback(); endScrub(); }
+  else startPlayback();
+});
+
+const spButtons = { 2000:document.getElementById("sp2"),
+                    4000:document.getElementById("sp4"),
+                    8000:document.getElementById("sp8") };
+for(const ms in spButtons){
+  spButtons[ms].addEventListener("click", () => {
+    playMs = +ms;
+    for(const k in spButtons) spButtons[k].classList.toggle("on", +k === playMs);
+  });
+}
+
+let looping = false;
+const loopBtn = document.getElementById("loopBtn");
+loopBtn.addEventListener("click", () => {
+  looping = !looping;
+  loopBtn.textContent = looping ? "Loop on" : "Loop off";
+  loopBtn.classList.toggle("on", looping);
+});
+
+
+/* =====================================================================
+   4. DISPLAY
+   ===================================================================== */
+const canvas = document.getElementById("chart");
+const ctx = canvas.getContext("2d");
+let W = 0, H = 0;
+const PAD = 18;
+
+function pxY(v){ return H - PAD - v * (H - PAD*2); }
+
+function draw(){
+  if(!ctx) return;
+  ctx.clearRect(0,0,W,H);
+
+  // faint band boundaries, so you can see where the levels change
+  const n = rates().length;
+  ctx.strokeStyle = "#252F3A"; ctx.lineWidth = 1;
+  for(let k = 1; k < n; k++){
+    const y = pxY(k/n);
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+
+  if(shapeVisible && ring){
+    // outline: draw the actual shape, centred and square-ish
+    const size = Math.min(W, H) - PAD*2;
+    const ox = (W - size)/2, oy = (H - size)/2;
+    ctx.strokeStyle = "#E8A33D"; ctx.lineWidth = 2.5; ctx.lineJoin = "round";
+    ctx.beginPath();
+    ring.forEach((p,i) => {
+      const x = ox + p.x*size, y = oy + p.y*size;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.closePath(); ctx.stroke();
+
+  } else if(shapeVisible){
+    ctx.strokeStyle = "#E8A33D"; ctx.lineWidth = 2.5; ctx.lineJoin = "round";
+    ctx.beginPath();
+    for(let i = 0; i < SAMPLES; i++){
+      const x = (i/(SAMPLES-1))*W;
+      const span = yMax - yMin;
+      const v = span < 0.001 ? 0.5 : (ys[i]-yMin)/span;
+      const y = pxY(v);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    if(showLandmarks){
+      for(const L of landmarks){
+        ctx.strokeStyle = L.kind === "peak" ? "#7FBF7F" : "#D9776B";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if(ring){
+          const size = Math.min(W,H) - PAD*2, ox = (W-size)/2, oy = (H-size)/2;
+          const p = ring[L.index];
+          ctx.arc(ox + p.x*size, oy + p.y*size, 7, 0, Math.PI*2);
+        } else {
+          const span = Math.max(0.001, yMax-yMin);
+          ctx.arc((L.index/(SAMPLES-1))*W, pxY((ys[L.index]-yMin)/span), 7, 0, Math.PI*2);
+        }
+        ctx.stroke();
+      }
+    }
+  }
+
+  if(active){
+    if(ring){
+      // a dot travelling around the outline
+      const size = Math.min(W,H) - PAD*2, ox = (W-size)/2, oy = (H-size)/2;
+      const p = ring[Math.min(SAMPLES-1, Math.round(pos*(SAMPLES-1)))];
+      ctx.fillStyle = "#5FB0C4";
+      ctx.beginPath(); ctx.arc(ox + p.x*size, oy + p.y*size, 7, 0, Math.PI*2); ctx.fill();
+    } else {
+      const x = pos * W;
+      ctx.strokeStyle = "#5FB0C4"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+      if(shapeVisible){
+        ctx.fillStyle = "#5FB0C4";
+        ctx.beginPath(); ctx.arc(x, pxY(heightAt(pos)), 5, 0, Math.PI*2); ctx.fill();
+      }
+    }
+  }
+}
+
+function resizeCanvas(){
+  if(!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  W = rect.width; H = rect.height;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+
+const levelsEl = document.querySelector(".levels");
+function paintLevels(){
+  const r = rates();
+  [...levelsEl.children].forEach((el, i) => {
+    if(i >= r.length){ el.style.display = "none"; el.classList.remove("live"); return; }
+    el.style.display = "flex";
+    const hz = r[i];
+    el.textContent = (Number.isInteger(hz) ? hz : hz.toFixed(1)) + "Hz";
+    el.classList.toggle("live", i === currentLevel);
+  });
+}
+
+function render(){
+  document.getElementById("rPos").textContent =
+    active ? Math.round(pos*100) + "%" : "—";
+  document.getElementById("rH").textContent =
+    active ? heightAt(pos).toFixed(2) : "—";
+  document.getElementById("rRate").textContent =
+    currentLevel < 0 ? "off" : rates()[currentLevel] + " Hz";
+}
+
+
+/* =====================================================================
+   5. CONTROLS
+   ===================================================================== */
+let category = "graph";          // "graph" | "outline" | "all"
+
+// Only the shapes in the current set are offered, and only they can
+// come up in the blind test. Mixing them would be unfair: a circle has
+// a constant radius, so it produces exactly the same signal as the
+// flat graph and no encoding could tell them apart.
+function activeShapes(){
+  if(category === "all") return SHAPES;
+  return SHAPES.filter(s => s.kind === category);
+}
+
+const shapeButtons = document.getElementById("shapeButtons");
+
+function buildShapeButtons(){
+  shapeButtons.innerHTML = "";
+  activeShapes().forEach(s => {
+    const b = document.createElement("button");
+    b.textContent = s.name; b.dataset.id = s.id;
+    b.addEventListener("click", () => loadShape(s, true));
+    shapeButtons.appendChild(b);
+  });
+  guessButtons.innerHTML = "";
+  activeShapes().forEach(s => {
+    const b = document.createElement("button");
+    b.textContent = s.name;
+    b.addEventListener("click", () => submitGuess(s));
+    guessButtons.appendChild(b);
+  });
+}
+
+const catButtons = { graph:document.getElementById("catGraph"),
+                     outline:document.getElementById("catOutline"),
+                     all:document.getElementById("catAll") };
+for(const k in catButtons){
+  catButtons[k].addEventListener("click", () => {
+    category = k;
+    for(const j in catButtons) catButtons[j].classList.toggle("on", j === category);
+    buildShapeButtons();
+    loadShape(activeShapes()[0], true);
+    renderScore();
+  });
+}
+
+function loadShape(s, reveal){
+  shape = s;
+  ys = sampleShape(s);
+  measureRange(ys);
+  landmarks = findLandmarks(ys);
+  lastLandmark = null;
+  if(reveal){ shapeVisible = true; setShapeLabel(); }
+  [...shapeButtons.children].forEach(b =>
+    b.classList.toggle("on", b.dataset.id === s.id && shapeVisible));
+  draw();
+}
+
+const lvButtons = { 2:document.getElementById("lv2"),
+                    3:document.getElementById("lv3"),
+                    4:document.getElementById("lv4"),
+                    5:document.getElementById("lv5"),
+                    6:document.getElementById("lv6") };
+function setLevels(n){
+  levelCount = n;
+  for(const k in lvButtons) lvButtons[k].classList.toggle("on", +k === n);
+  currentLevel = -1;
+  paintLevels(); draw();
+}
+for(const k in lvButtons) lvButtons[k].addEventListener("click", () => setLevels(+k));
+
+const flButtons = { 2:document.getElementById("fl2"),
+                    4:document.getElementById("fl4"),
+                    6:document.getElementById("fl6") };
+for(const k in flButtons){
+  flButtons[k].addEventListener("click", () => {
+    floorHz = +k;
+    for(const j in flButtons) flButtons[j].classList.toggle("on", +j === floorHz);
+    currentLevel = -1;
+    paintLevels(); draw();
+  });
+}
+
+const lowTexBtn = document.getElementById("lowTex");
+lowTexBtn.addEventListener("click", () => {
+  lowTexture = !lowTexture;
+  lowTexBtn.textContent = "Doublet low: " + (lowTexture ? "on" : "off");
+  lowTexBtn.classList.toggle("on", lowTexture);
+  currentLevel = -1;
+});
+
+const toggleShape = document.getElementById("toggleShape");
+function setShapeLabel(){
+  toggleShape.textContent = shapeVisible ? "Shape visible" : "Shape hidden";
+  toggleShape.classList.toggle("on", shapeVisible);
+}
+toggleShape.addEventListener("click", () => {
+  shapeVisible = !shapeVisible; setShapeLabel(); loadShape(shape, false);
+});
+
+const toggleLand = document.getElementById("toggleLand");
+toggleLand.addEventListener("click", () => {
+  showLandmarks = !showLandmarks;
+  toggleLand.textContent = showLandmarks ? "Landmarks on" : "Landmarks off";
+  toggleLand.classList.toggle("on", showLandmarks);
+  draw();
+});
+
+
+/* =====================================================================
+   6. BLIND TEST
+   ===================================================================== */
+let answer = null, roundStart = 0;
+const perShape = {};
+SHAPES.forEach(s => perShape[s.id] = { right:0, total:0 });
+const trialLog = [];
+
+const guessButtons = document.getElementById("guessButtons");
+const verdict = document.getElementById("verdict");
+const scoreEl = document.getElementById("score");
+const logEl = document.getElementById("log");
+
+document.getElementById("startTest").addEventListener("click", () => {
+  const pool = activeShapes();
+  answer = pool[Math.floor(Math.random()*pool.length)];
+  shapeVisible = false; setShapeLabel();
+  loadShape(answer, false);
+  [...shapeButtons.children].forEach(b => b.classList.remove("on"));
+  guessButtons.style.display = "flex";
+  verdict.textContent = "Scrub it, then name it.";
+  verdict.className = "";
+  roundStart = Date.now();
+});
+
+function submitGuess(guess){
+  if(!answer) return;
+  const secs = Math.round((Date.now()-roundStart)/1000);
+  const right = guess.id === answer.id;
+  const rec = perShape[answer.id];
+  rec.total++; if(right) rec.right++;
+
+  trialLog.push({ set:category, encoded: answer.kind === "outline" ? "radius from centre" : "height",
+                  actual:answer.name, guessed:guess.name, correct:right,
+                  seconds:secs, levels:levelCount, landmarks:showLandmarks,
+                  floorHz:floorHz, lowTexture:lowTexture });
+
+  verdict.textContent = right
+    ? "Correct — " + answer.name + ", in " + secs + "s."
+    : "No — that was " + answer.name + ", you said " + guess.name + ".";
+  verdict.className = right ? "ok" : "no";
+
+  const line = document.createElement("div");
+  line.textContent = (right ? "OK   " : "MISS ") + answer.name +
+    (right ? "" : "  ->  " + guess.name) +
+    "   " + levelCount + "lv" + (showLandmarks ? " +lm" : "") + "  " + secs + "s";
+  logEl.prepend(line);
+
+  renderScore();
+  shapeVisible = true; setShapeLabel(); loadShape(answer, true);
+  guessButtons.style.display = "none";
+  answer = null;
+}
+
+function renderScore(){
+  const done = activeShapes().filter(s => perShape[s.id].total > 0);
+  if(!done.length){ scoreEl.textContent = ""; return; }
+  let right = 0, total = 0;
+  const parts = done.map(s => {
+    const r = perShape[s.id]; right += r.right; total += r.total;
+    return s.name + " " + r.right + "/" + r.total;
+  });
+  scoreEl.textContent = "overall " + right + "/" + total + " (" +
+    Math.round(right/total*100) + "%)  ·  chance is " +
+    Math.round(100/activeShapes().length) + "%\n" + parts.join("  ·  ");
+}
+
+
+/* =====================================================================
+   7. EXPORT
+   ===================================================================== */
+function buildResults(){
+  const byShape = {};
+  SHAPES.forEach(s => {
+    const r = perShape[s.id];
+    if(r.total) byShape[s.name] = { correct:r.right, trials:r.total,
+      percent: Math.round(r.right/r.total*100) };
+  });
+  const total = trialLog.length, right = trialLog.filter(t => t.correct).length;
+  return {
+    test: "shape reader - slider scrub, rate-coded height",
+    recordedAt: new Date().toISOString(),
+    device: { userAgent: navigator.userAgent, vibrationSupported: canVibrate,
+      screen: window.screen.width + "x" + window.screen.height },
+    encoding: {
+      channel: "tick rate", levels: rates(),
+      tickMsPerRate: rates().map(hz => ({ hz: hz, tickMs: tickFor(hz),
+        gapMs: Math.max(6, Math.round(1000/hz) - tickFor(hz)) })),
+      chunkMs: CHUNK_MS,
+      rule: "level fired once on change and left running; never re-fired per frame"
+    },
+    settings: { set: category, levelCount: levelCount, landmarks: showLandmarks,
+      playbackMs: playMs, looping: looping,
+      floorHz: floorHz, lowTexture: lowTexture },
+    basis: [
+      "device-measured: tick-rate steps of about 1.6x or wider resolvable; duty-cycle intensity at chance",
+      "web Vibration API has no amplitude parameter",
+      "a new vibrate() call cancels the running pattern, so per-frame calls produce flat static"
+    ],
+    overall: total ? { correct:right, trials:total,
+      percent: Math.round(right/total*100),
+      chancePercent: Math.round(100/SHAPES.length) } : null,
+    byShape: byShape,
+    trials: trialLog,
+    notes: document.getElementById("notes").value || null,
+    caveats: [
+      "One tester, one device.",
+      "Blindfolded sighted testing is not the same as blind or deafblind use.",
+      "Motor noise is audible; mask it or the test partly measures hearing."
+    ]
+  };
+}
+
+const exportOut = document.getElementById("exportOut");
+document.getElementById("exportShow").addEventListener("click", () => {
+  exportOut.textContent = JSON.stringify(buildResults(), null, 2);
+});
+document.getElementById("exportDownload").addEventListener("click", () => {
+  const text = JSON.stringify(buildResults(), null, 2);
+  const blob = new Blob([text], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "shape-reader-" + new Date().toISOString().slice(0,19).replace(/[:T]/g,"-") + ".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  exportOut.textContent = "Downloaded.";
+});
+document.getElementById("exportCopy").addEventListener("click", async () => {
+  const text = JSON.stringify(buildResults(), null, 2);
+  try { await navigator.clipboard.writeText(text); exportOut.textContent = "Copied."; }
+  catch(e){ exportOut.textContent = "Could not copy. Select and copy:\n\n" + text; }
+});
+
+
+/* =====================================================================
+   8. START UP
+   ===================================================================== */
+if(!canVibrate){
+  const box = document.getElementById("support");
+  box.style.display = "block";
+  box.textContent = "No vibration support here. Safari and iOS never implemented the " +
+    "Vibration API and Firefox removed it in version 129. Use Chrome, Edge or Samsung " +
+    "Internet on Android, and check the phone is not in Silent or Do Not Disturb.";
+}
+
+window.addEventListener("resize", resizeCanvas);
+buildShapeButtons();
+loadShape(activeShapes()[0], true);
+setLevels(4);
+render();
+resizeCanvas();
+</script>
+</body>
+</html>

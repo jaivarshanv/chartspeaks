@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChartSpeaks</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23050505'/%3E%3Crect x='6' y='16' width='5' height='10' fill='%23F2FF49'/%3E%3Crect x='13.5' y='8' width='5' height='18' fill='%23F2FF49'/%3E%3Crect x='21' y='12' width='5' height='14' fill='%23F2FF49'/%3E%3C/svg%3E">
+<meta name="description" content="Upload a chart and get it back three ways: a labelled picture with captions, text for screen readers and Braille displays, and vibration you can explore by touch.">
 <script src="./support.js"></script>
 </head>
 <body>
@@ -13,82 +16,152 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 html,body{margin:0;padding:0;background:#050505;-webkit-font-smoothing:antialiased}
-a{color:#F2FF49;text-decoration:none}
+a{color:#F2FF49}
 a:hover{color:#ffffff}
 *{box-sizing:border-box}
+:focus-visible{outline:3px solid #F2FF49;outline-offset:3px}
+.cs-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.cs-kicker{margin:0;font-family:'JetBrains Mono',monospace;font-size:calc(11px*var(--k));font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#A3A39D}
+.cs-card{border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.cs-btn{min-height:44px;padding:11px 16px;border:1px solid rgba(255,255,255,.24);border-radius:12px;background:transparent;color:#D6D6D0;font-family:'JetBrains Mono',monospace;font-size:calc(12px*var(--k));font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.cs-btn:hover{border-color:#F2FF49;color:#F2FF49}
+.cs-btn[aria-pressed="true"]{background:#F2FF49;border-color:#F2FF49;color:#050505}
+.cs-btn:disabled{opacity:.4;cursor:default}
+.cs-btn:disabled:hover{border-color:rgba(255,255,255,.24);color:#D6D6D0}
+.cs-tab{flex:1;min-height:52px;border:none;border-radius:11px;cursor:pointer;background:transparent;color:#A3A39D;font-family:'Space Grotesk',sans-serif;font-size:calc(14px*var(--k));font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.cs-tab[aria-selected="true"]{background:#F2FF49;color:#050505;box-shadow:0 6px 20px rgba(242,255,73,.28)}
+.cs-choice{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;flex:1;min-width:150px;min-height:44px;padding:14px;border:1px solid rgba(255,255,255,.2);border-radius:14px;background:rgba(255,255,255,.03);color:#E4E4DE;cursor:pointer;font-family:'Space Grotesk',sans-serif}
+.cs-choice:hover{border-color:#F2FF49}
+.cs-choice[aria-pressed="true"]{border:2px solid #F2FF49;background:rgba(242,255,73,.1)}
+.cs-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:calc(13px*var(--k));color:#E4E4DE}
+.cs-table caption{text-align:left;padding-bottom:8px}
+.cs-table th{text-align:left;font-size:calc(11px*var(--k));letter-spacing:.1em;text-transform:uppercase;color:#A3A39D;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.18)}
+.cs-table td{padding:11px 6px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:middle}
+.cs-range{width:100%;height:44px;margin:0;accent-color:#F2FF49;cursor:pointer}
+.cs-calm *,.cs-calm *::before,.cs-calm *::after{animation:none!important;transition:none!important}
 @keyframes cs-marquee{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
 @keyframes cs-breathe{0%,100%{transform:translate3d(-50%,-50%,0) scale(1);opacity:.55}50%{transform:translate3d(-50%,-50%,0) scale(1.12);opacity:.85}}
 @keyframes cs-sweep{from{background-position:0% 50%}to{background-position:200% 50%}}
 @keyframes cs-blink{0%,100%{opacity:1}50%{opacity:.25}}
 @keyframes cs-rise{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+@keyframes cs-flash{0%{transform:translateX(-50%) scale(.9);opacity:0}15%{transform:translateX(-50%) scale(1.06);opacity:1}100%{transform:translateX(-50%) scale(1);opacity:1}}
 </style>
 </helmet>
-<div style="position:relative;min-height:100vh;overflow:hidden;background:#050505;font-family:'Space Grotesk',Helvetica,sans-serif;color:#fff">
+<div class="{{ rootClass }}" style="--k:{{ textScale }};position:relative;min-height:100vh;overflow:hidden;background:#050505;font-family:'Space Grotesk',Helvetica,sans-serif;color:#fff">
 
-  <div style="position:absolute;inset:0;pointer-events:none;z-index:0;background:radial-gradient(120% 60% at 50% 0%,rgba(242,255,73,.05),transparent 60%)"></div>
-  <div style="position:absolute;left:50%;top:34%;width:760px;height:760px;border-radius:50%;pointer-events:none;z-index:0;background:radial-gradient(circle at 38% 32%,rgba(120,160,255,.20),rgba(60,80,200,.10) 42%,rgba(5,5,5,0) 68%);filter:blur(6px);animation:cs-breathe 14s ease-in-out infinite"></div>
+  <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;z-index:0;background:radial-gradient(120% 60% at 50% 0%,rgba(242,255,73,.05),transparent 60%)"></div>
+  <div aria-hidden="true" style="position:absolute;left:50%;top:34%;width:760px;height:760px;border-radius:50%;pointer-events:none;z-index:0;background:radial-gradient(circle at 38% 32%,rgba(120,160,255,.20),rgba(60,80,200,.10) 42%,rgba(5,5,5,0) 68%);filter:blur(6px);animation:cs-breathe 14s ease-in-out infinite"></div>
   <sc-if value="{{ marquee }}" hint-placeholder-val="{{ true }}">
-    <div style="position:absolute;top:44%;left:0;width:100%;overflow:hidden;pointer-events:none;z-index:1;opacity:.03">
+    <div aria-hidden="true" style="position:absolute;top:44%;left:0;width:100%;overflow:hidden;pointer-events:none;z-index:1;opacity:.03">
       <div style="display:flex;width:200%;white-space:nowrap;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:150px;letter-spacing:.06em;line-height:1;color:#fff;animation:cs-marquee 34s linear infinite">
         <span>CHARTSPEAKS&nbsp;·&nbsp;CHARTSPEAKS&nbsp;·&nbsp;CHARTSPEAKS&nbsp;·&nbsp;</span>
         <span>CHARTSPEAKS&nbsp;·&nbsp;CHARTSPEAKS&nbsp;·&nbsp;CHARTSPEAKS&nbsp;·&nbsp;</span>
       </div>
     </div>
   </sc-if>
-  <div style="position:absolute;inset:0;pointer-events:none;z-index:2;background:linear-gradient(180deg,rgba(5,5,5,.7),rgba(5,5,5,0) 30%,rgba(5,5,5,.85))"></div>
+  <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;z-index:2;background:linear-gradient(180deg,rgba(5,5,5,.7),rgba(5,5,5,0) 30%,rgba(5,5,5,.85))"></div>
 
-  <div style="position:relative;z-index:3;width:100%;max-width:650px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:20px;padding:26px 20px 40px">
+  <div style="position:relative;z-index:3;width:100%;max-width:680px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;gap:20px;padding:26px 16px 48px">
 
-    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+    <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
       <div style="display:flex;flex-direction:column;gap:6px">
-        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:19px;letter-spacing:.16em;color:#fff">CHARTSPEAKS</div>
-        <div style="font-size:13px;line-height:1.4;color:#B9B9B4">Charts, read aloud and felt by hand.</div>
+        <h1 style="margin:0;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:calc(19px*var(--k));letter-spacing:.16em;color:#fff">CHARTSPEAKS</h1>
+        <p style="margin:0;font-size:calc(14px*var(--k));line-height:1.4;color:#C9C9C3">Charts you can see, read and feel.</p>
       </div>
-      <div style="flex:none;display:flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid rgba(242,255,73,.5);border-radius:999px;background:rgba(242,255,73,.08)">
-        <span style="width:7px;height:7px;border-radius:50%;background:#F2FF49;animation:cs-blink 2.4s ease-in-out infinite"></span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#F2FF49">LIVE</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="cs-btn" onClick="{{ toggleSettings }}" aria-expanded="{{ settingsOpen }}" aria-controls="cs-settings">Settings</button>
+        <div aria-hidden="true" style="flex:none;display:flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid rgba(242,255,73,.5);border-radius:999px;background:rgba(242,255,73,.08)">
+          <span style="width:7px;height:7px;border-radius:50%;background:#F2FF49;animation:cs-blink 2.4s ease-in-out infinite"></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#F2FF49">LIVE</span>
+        </div>
       </div>
     </header>
 
-    <sc-if value="{{ isUpload }}" hint-placeholder-val="{{ true }}">
-      <div style="display:flex;flex-direction:column;gap:16px;animation:cs-rise .35s ease both">
+    <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+      <section id="cs-settings" aria-labelledby="cs-settings-heading" class="cs-card" style="display:flex;flex-direction:column;gap:18px;padding:20px">
+        <h2 id="cs-settings-heading" class="cs-kicker">Settings · saved on this device</h2>
+        <div role="group" aria-labelledby="cs-size-label" style="display:flex;flex-direction:column;gap:8px">
+          <span id="cs-size-label" style="font-size:calc(15px*var(--k));color:#E4E4DE">Text size</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ textSizes }}" as="t" hint-placeholder-count="3">
+              <button class="cs-btn" onClick="{{ t.select }}" aria-pressed="{{ t.pressed }}" aria-label="{{ t.name }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="cs-btn" style="align-self:flex-start" onClick="{{ toggleCalm }}" aria-pressed="{{ calmOn }}">Calm motion</button>
+          <sc-if value="{{ speechOk }}" hint-placeholder-val="{{ true }}">
+            <button class="cs-btn" style="align-self:flex-start" onClick="{{ toggleAutoSpeak }}" aria-pressed="{{ autoSpeakOn }}">Read summary aloud when a chart opens</button>
+          </sc-if>
+          <sc-if value="{{ vibrateApi }}" hint-placeholder-val="{{ true }}">
+            <button class="cs-btn" style="align-self:flex-start" onClick="{{ toggleVibrate }}" aria-pressed="{{ vibrateOn }}">Vibration</button>
+          </sc-if>
+        </div>
+        <p style="margin:0;font-size:calc(13px*var(--k));line-height:1.6;color:#B9B9B4">Nothing here needs sound. Everything spoken aloud is also shown as text, and every vibration also shows on screen.</p>
+      </section>
+    </sc-if>
 
-        <div onClick="{{ pickFile }}" onPointerEnter="{{ dropOn }}" onPointerLeave="{{ dropOff }}" onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="position:relative;border-radius:22px;padding:38px 24px;text-align:center;cursor:pointer;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:border-color .2s,box-shadow .25s,background .25s" style-hover="border:2px dashed #F2FF49" >
-          <input id="cs-file-input" type="file" accept=".png,.jpg,.jpeg,.json,.csv" onChange="{{ onFileInputChange }}" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0" />
-          <div style="position:absolute;inset:0;border-radius:22px;border:2px dashed rgba(255,255,255,.22);pointer-events:none"></div>
-          <div style="position:absolute;inset:0;border-radius:22px;pointer-events:none;border:2px dashed #F2FF49;box-shadow:0 0 34px rgba(242,255,73,.28),inset 0 0 34px rgba(242,255,73,.10);transition:opacity .25s;opacity:{{ dropGlow }}"></div>
-          <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:14px">
-            <div style="width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:rgba(242,255,73,.12);border:1px solid rgba(242,255,73,.35)">
-              <div style="width:16px;height:16px;border-left:2.5px solid #F2FF49;border-top:2.5px solid #F2FF49;transform:rotate(45deg) translate(2px,2px)"></div>
-            </div>
-            <div style="font-size:18px;font-weight:500;color:#fff">Drop a chart image or CSV</div>
-            <div style="font-size:13px;line-height:1.5;max-width:330px;color:#B9B9B4">We rebuild it as semantic text for Braille displays and as a haptic surface for your fingertip.</div>
+    <main style="display:flex;flex-direction:column;gap:20px">
+
+    <sc-if value="{{ isUpload }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:18px;animation:cs-rise .35s ease both">
+
+        <div role="group" aria-labelledby="cs-start-label" style="display:flex;flex-direction:column;gap:10px">
+          <h2 id="cs-start-label" class="cs-kicker">Open my chart in</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ startChoices }}" as="c" hint-placeholder-count="3">
+              <button class="cs-choice" onClick="{{ c.select }}" aria-pressed="{{ c.pressed }}">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:calc(13px*var(--k));font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#F2FF49">{{ c.label }}</span>
+                <span style="font-size:calc(13px*var(--k));line-height:1.45;color:#C9C9C3">{{ c.desc }}</span>
+              </button>
+            </sc-for>
           </div>
         </div>
 
-        <p style="margin:2px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#6E6E68">SUPPORTED · PNG · JPG · JSON · CSV</p>
+        <div id="cs-dropzone" role="button" tabIndex="0" aria-labelledby="cs-drop-title" aria-describedby="cs-drop-help" onClick="{{ pickFile }}" onKeyDown="{{ onDropKey }}" onPointerEnter="{{ dropOn }}" onPointerLeave="{{ dropOff }}" onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="position:relative;border-radius:22px;padding:38px 24px;text-align:center;cursor:pointer;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)">
+          <input id="cs-file-input" type="file" tabIndex="-1" aria-hidden="true" accept=".png,.jpg,.jpeg,.json,.csv" onChange="{{ onFileInputChange }}" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0" />
+          <div aria-hidden="true" style="position:absolute;inset:0;border-radius:22px;border:2px dashed rgba(255,255,255,.26);pointer-events:none"></div>
+          <div aria-hidden="true" style="position:absolute;inset:0;border-radius:22px;pointer-events:none;border:2px dashed #F2FF49;box-shadow:0 0 34px rgba(242,255,73,.28),inset 0 0 34px rgba(242,255,73,.10);transition:opacity .25s;opacity:{{ dropGlow }}"></div>
+          <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:14px">
+            <div aria-hidden="true" style="width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:rgba(242,255,73,.12);border:1px solid rgba(242,255,73,.35)">
+              <div style="width:16px;height:16px;border-left:2.5px solid #F2FF49;border-top:2.5px solid #F2FF49;transform:rotate(45deg) translate(2px,2px)"></div>
+            </div>
+            <div id="cs-drop-title" style="font-size:calc(18px*var(--k));font-weight:500;color:#fff">Choose or drop a chart</div>
+            <div id="cs-drop-help" style="font-size:calc(14px*var(--k));line-height:1.55;max-width:380px;color:#C9C9C3">A PNG or JPG of a bar or line chart, or its data as CSV or JSON. You get it back as a labelled picture with captions, as text for screen readers and Braille displays, and as vibration you can explore.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="cs-kicker">No chart handy? Try a sample</span>
+          <sc-for list="{{ samples }}" as="sm" hint-placeholder-count="2">
+            <button class="cs-btn" onClick="{{ sm.open }}">{{ sm.label }}</button>
+          </sc-for>
+        </div>
+
+        <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:calc(11px*var(--k));line-height:1.6;color:#A3A39D">SUPPORTED · PNG · JPG · JSON · CSV</p>
       </div>
     </sc-if>
 
     <sc-if value="{{ isProcessing }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;flex-direction:column;gap:18px;padding:30px 22px;border:1px solid rgba(255,255,255,.12);border-radius:22px;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);animation:cs-rise .3s ease both" role="status" aria-live="polite">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8E8E88">PROCESSING</div>
-        <div style="font-size:20px;font-weight:500;color:#fff;min-height:28px">{{ processMsg }}</div>
-        <div style="position:relative;height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.10)">
+      <div class="cs-card" style="display:flex;flex-direction:column;gap:18px;padding:30px 22px;animation:cs-rise .3s ease both">
+        <h2 id="cs-processing-heading" tabIndex="-1" class="cs-kicker">Processing</h2>
+        <div role="status" class="cs-sr">Reading {{ fileName }}. This can take up to a minute.</div>
+        <div aria-hidden="true" style="font-size:calc(20px*var(--k));font-weight:500;color:#fff;min-height:28px">{{ processMsg }}</div>
+        <div aria-hidden="true" style="position:relative;height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.10)">
           <div style="height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,#F2FF49,#6E8CFF,#F2FF49);background-size:200% 100%;animation:cs-sweep 1.1s linear infinite;box-shadow:0 0 18px rgba(242,255,73,.5)"></div>
         </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#B9B9B4">{{ fileName }}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:calc(12px*var(--k));color:#C9C9C3">{{ fileName }}</div>
         <sc-if value="{{ showColdStartHint }}" hint-placeholder-val="{{ false }}">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#6E6E68">First request after idle can take up to a minute while the server wakes up.</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:calc(12px*var(--k));line-height:1.6;color:#A3A39D">First request after idle can take up to a minute while the server wakes up.</div>
         </sc-if>
       </div>
     </sc-if>
 
     <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;flex-direction:column;gap:18px;padding:30px 22px;border:1px solid rgba(255,120,90,.35);border-radius:22px;background:rgba(255,120,90,.06);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);animation:cs-rise .3s ease both" role="alert">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#FFA36E">COULDN'T READ THAT FILE</div>
-        <div style="font-size:15px;line-height:1.6;color:#E4E4DE">{{ errorMessage }}</div>
-        <button onClick="{{ backToUpload }}" style="align-self:flex-start;padding:11px 16px;min-height:44px;border:1px solid rgba(255,163,110,.4);border-radius:12px;background:transparent;color:#FFA36E;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer" style-hover="border:1px solid #FFA36E">TRY AGAIN</button>
+      <div style="display:flex;flex-direction:column;gap:18px;padding:30px 22px;border:1px solid rgba(255,120,90,.45);border-radius:22px;background:rgba(255,120,90,.06);animation:cs-rise .3s ease both">
+        <h2 id="cs-error-heading" tabIndex="-1" style="margin:0;font-family:'JetBrains Mono',monospace;font-size:calc(12px*var(--k));letter-spacing:.12em;color:#FFB48A">COULDN'T READ THAT FILE</h2>
+        <div role="alert" style="font-size:calc(15px*var(--k));line-height:1.6;color:#E4E4DE">{{ errorMessage }}</div>
+        <button class="cs-btn" onClick="{{ backToUpload }}" style="align-self:flex-start;border-color:rgba(255,180,138,.5);color:#FFB48A">Try again</button>
       </div>
     </sc-if>
 
@@ -97,112 +170,256 @@ a:hover{color:#ffffff}
 
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
           <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
-            <div style="font-size:17px;font-weight:500;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ title }}</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:#8E8E88">{{ subtitle }}</div>
+            <h2 id="cs-results-heading" tabIndex="-1" style="margin:0;font-size:calc(19px*var(--k));font-weight:700;line-height:1.3;color:#fff">{{ title }}</h2>
+            <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:calc(11px*var(--k));letter-spacing:.08em;color:#A3A39D">{{ subtitle }}</p>
           </div>
-          <button onClick="{{ reset }}" style="flex:none;padding:11px 14px;min-height:44px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:transparent;color:#B9B9B4;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer" style-hover="color:#F2FF49">NEW FILE</button>
+          <button class="cs-btn" style="flex:none" onClick="{{ reset }}">New file</button>
         </div>
 
-        <div role="tablist" style="display:flex;flex-direction:row;gap:6px;padding:6px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)">
-          <button role="tab" onClick="{{ goRead }}" aria-selected="{{ isRead }}" style="flex:1;min-height:52px;border:none;border-radius:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;transition:all .2s;background:{{ readTabBg }};color:{{ readTabFg }};box-shadow:{{ readTabShadow }}">READ</button>
-          <button role="tab" onClick="{{ goFeel }}" aria-selected="{{ isFeel }}" style="flex:1;min-height:52px;border:none;border-radius:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;transition:all .2s;background:{{ feelTabBg }};color:{{ feelTabFg }};box-shadow:{{ feelTabShadow }}">FEEL</button>
+        <sc-if value="{{ multiSeries }}" hint-placeholder-val="{{ false }}">
+          <div role="group" aria-label="Choose a series" style="display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ seriesChoices }}" as="sc" hint-placeholder-count="2">
+              <button class="cs-btn" onClick="{{ sc.select }}" aria-pressed="{{ sc.pressed }}">{{ sc.name }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div role="tablist" aria-label="Ways to explore this chart" class="cs-card" style="display:flex;flex-direction:row;gap:6px;padding:6px;border-radius:16px">
+          <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="3">
+            <button role="tab" class="cs-tab" id="{{ t.id }}" aria-controls="{{ t.panel }}" aria-selected="{{ t.selected }}" tabIndex="{{ t.tabindex }}" onClick="{{ t.select }}" onKeyDown="{{ onTabKey }}">{{ t.label }}</button>
+          </sc-for>
         </div>
 
-        <sc-if value="{{ isRead }}" hint-placeholder-val="{{ true }}">
-          <article style="display:flex;flex-direction:column;gap:20px;padding:22px 20px;border:1px solid rgba(255,255,255,.12);border-radius:22px;background:rgba(255,255,255,.04);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)">
-            <h3 style="margin:0;font-size:19px;font-weight:700;line-height:1.3;color:#fff">{{ title }}</h3>
-            <p role="status" aria-live="polite" style="margin:0;font-size:15px;line-height:1.65;color:#E4E4DE">{{ summary }}</p>
+        <sc-if value="{{ isSee }}" hint-placeholder-val="{{ false }}">
+          <section id="cs-panel-see" role="tabpanel" aria-labelledby="cs-tab-see" style="display:flex;flex-direction:column;gap:16px">
 
-            <sc-if value="{{ speechOk }}" hint-placeholder-val="{{ true }}">
-              <button onClick="{{ toggleSpeak }}" aria-label="{{ speakAria }}" style="align-self:flex-start;padding:11px 16px;min-height:44px;border:1px solid {{ speakBorder }};border-radius:12px;background:{{ speakBg }};color:{{ speakFg }};font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer;font-weight:700">{{ speakLabel }}</button>
-            </sc-if>
+            <figure class="cs-card" style="margin:0;padding:16px 12px 12px;display:flex;flex-direction:column;gap:10px">
+              <div role="img" aria-label="{{ chartAlt }}" style="position:relative;width:100%;aspect-ratio:5/3">
+                <svg viewBox="0 0 1000 600" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+                  <line x1="40" x2="960" y1="{{ baseY }}" y2="{{ baseY }}" stroke="rgba(255,255,255,.4)" stroke-width="2" vector-effect="non-scaling-stroke"></line>
+                  <sc-if value="{{ isBar }}" hint-placeholder-val="{{ true }}">
+                    <sc-for list="{{ marks }}" as="m" hint-placeholder-count="6">
+                      <rect x="{{ m.x }}" y="{{ m.y }}" width="{{ m.w }}" height="{{ m.h }}" fill="{{ m.seeFill }}" stroke="{{ m.seeStroke }}" stroke-width="3" vector-effect="non-scaling-stroke"></rect>
+                    </sc-for>
+                  </sc-if>
+                  <sc-if value="{{ isLine }}" hint-placeholder-val="{{ false }}">
+                    <polyline points="{{ linePts }}" fill="none" stroke="#8FA8FF" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                  </sc-if>
+                </svg>
+                <sc-if value="{{ isLine }}" hint-placeholder-val="{{ false }}">
+                  <sc-for list="{{ marks }}" as="m" hint-placeholder-count="6">
+                    <span style="position:absolute;left:{{ m.leftPct }};top:{{ m.dotTop }};width:{{ m.dotSize }};height:{{ m.dotSize }};border-radius:50%;transform:translate(-50%,-50%);background:{{ m.seeFill }};border:2px solid #050505"></span>
+                  </sc-for>
+                </sc-if>
+                <sc-for list="{{ marks }}" as="m" hint-placeholder-count="6">
+                  <span style="position:absolute;left:{{ m.leftPct }};top:{{ m.labelTop }};transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap;font-family:'JetBrains Mono',monospace;line-height:1.15">
+                    <span style="font-size:calc(9.5px*var(--k));font-weight:700;letter-spacing:.06em;color:#F2FF49">{{ m.badge }}</span>
+                    <span style="font-size:calc(12px*var(--k));font-weight:700;color:{{ m.valueInk }}">{{ m.valueLabel }}</span>
+                  </span>
+                  <span style="position:absolute;left:{{ m.leftPct }};top:87%;transform:translateX(-50%);white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:calc(11px*var(--k));color:#C9C9C3">{{ m.xLabel }}</span>
+                </sc-for>
+              </div>
+              <figcaption style="font-size:calc(12px*var(--k));line-height:1.5;color:#B9B9B4">HIGH and LOW are written on the chart, not shown by color alone. The yellow bar or point is the step you are on below.</figcaption>
+            </figure>
 
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <h3 style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;color:#8E8E88">EXTREMA</h3>
-              <div style="display:flex;flex-wrap:wrap;gap:8px">
-                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:#F2FF49;color:#050505;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700">HIGH {{ hiLabel }} · {{ hiValue }}</span>
-                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:transparent;border:2px solid #F2FF49;color:#F2FF49;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700">LOW {{ loLabel }} · {{ loValue }}</span>
+            <div class="cs-card" style="display:flex;flex-direction:column;gap:14px;padding:18px 18px 16px;border-color:rgba(242,255,73,.4)">
+              <p class="cs-kicker">{{ stepCounter }}</p>
+              <p aria-live="polite" style="margin:0;min-height:3.2em;font-size:calc(19px*var(--k));font-weight:500;line-height:1.45;color:#fff">{{ stepCaption }}</p>
+              <div style="display:flex;gap:8px">
+                <button class="cs-btn" onClick="{{ prevStep }}" disabled="{{ prevDisabled }}">Previous</button>
+                <button class="cs-btn" onClick="{{ nextStep }}" disabled="{{ nextDisabled }}" style="border-color:#F2FF49;color:#F2FF49">Next</button>
               </div>
             </div>
 
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <h3 style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;color:#8E8E88">DATA POINTS · {{ count }}</h3>
-              <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px">
-                <sc-for list="{{ points }}" as="p" hint-placeholder-count="12">
-                  <li style="display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,.07);min-height:46px">
-                    <span style="flex:none;width:46px;font-family:'JetBrains Mono',monospace;font-size:13px;color:#E4E4DE">{{ p.label }}</span>
-                    <span style="flex:1;height:10px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden">
-                      <span style="display:block;height:100%;border-radius:3px;background:{{ p.fill }};width:{{ p.bar }}"></span>
-                    </span>
-                    <span style="flex:none;width:64px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:{{ p.ink }}">{{ p.value }}</span>
-                    <sc-if value="{{ p.tag }}" hint-placeholder-val="{{ false }}">
-                      <span style="flex:none;padding:4px 8px;border-radius:999px;background:#F2FF49;color:#050505;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em">{{ p.tag }}</span>
-                    </sc-if>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <h3 class="cs-kicker">Key facts</h3>
+              <ul style="margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+                <sc-for list="{{ facts }}" as="f" hint-placeholder-count="4">
+                  <li class="cs-card" style="display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:16px">
+                    <span class="cs-kicker">{{ f.label }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:calc(20px*var(--k));font-weight:700;color:#F2FF49">{{ f.value }}</span>
+                    <span style="font-size:calc(13px*var(--k));color:#C9C9C3">{{ f.detail }}</span>
                   </li>
                 </sc-for>
               </ul>
             </div>
 
-            <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;color:#6E6E68">Structure mapped to article / heading / list tags for line-by-line Braille output.</p>
+            <sc-if value="{{ hasImage }}" hint-placeholder-val="{{ false }}">
+              <details class="cs-card" style="padding:14px 16px">
+                <summary style="cursor:pointer;min-height:28px;font-size:calc(14px*var(--k));color:#E4E4DE">Compare with your original image</summary>
+                <div role="img" aria-label="The chart image you uploaded." style="width:100%;aspect-ratio:3/2;margin-top:12px;border-radius:10px;background:#fff url({{ imageUrl }}) center/contain no-repeat"></div>
+              </details>
+            </sc-if>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ isRead }}" hint-placeholder-val="{{ true }}">
+          <article id="cs-panel-read" role="tabpanel" aria-labelledby="cs-tab-read" class="cs-card" style="display:flex;flex-direction:column;gap:20px;padding:22px 20px;border-radius:22px">
+
+            <section style="display:flex;flex-direction:column;gap:10px">
+              <h3 class="cs-kicker">Key facts</h3>
+              <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:calc(16px*var(--k));line-height:1.5;color:#fff">
+                <sc-for list="{{ facts }}" as="f" hint-placeholder-count="4">
+                  <li>{{ f.line }}</li>
+                </sc-for>
+              </ul>
+            </section>
+
+            <section style="display:flex;flex-direction:column;gap:12px">
+              <h3 class="cs-kicker">Summary</h3>
+              <p style="margin:0;font-size:calc(16px*var(--k));line-height:1.7;color:#E4E4DE">
+                <sc-for list="{{ sentences }}" as="sn" hint-placeholder-count="4">
+                  <span style="border-radius:4px;background:{{ sn.bg }};color:{{ sn.ink }}">{{ sn.text }} </span>
+                </sc-for>
+              </p>
+              <sc-if value="{{ speechOk }}" hint-placeholder-val="{{ true }}">
+                <button class="cs-btn" onClick="{{ toggleSpeak }}" aria-pressed="{{ speaking }}" style="align-self:flex-start">Read aloud</button>
+              </sc-if>
+              <sc-if value="{{ speaking }}" hint-placeholder-val="{{ false }}">
+                <div aria-hidden="true" style="padding:14px 16px;border-radius:14px;background:#000;border:1px solid rgba(242,255,73,.5);font-size:calc(18px*var(--k));line-height:1.5;color:#fff">
+                  <span class="cs-kicker" style="display:block;margin-bottom:6px;color:#F2FF49">Caption</span>{{ captionText }}
+                </div>
+              </sc-if>
+            </section>
+
+            <section style="display:flex;flex-direction:column;gap:8px">
+              <h3 class="cs-kicker">All data</h3>
+              <table class="cs-table">
+                <caption class="cs-sr">{{ tableCaption }}</caption>
+                <thead>
+                  <tr><th scope="col">{{ xHeader }}</th><th scope="col">{{ yHeader }}</th><th scope="col">Note</th></tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+                    <tr>
+                      <th scope="row" style="font-weight:400;color:#E4E4DE;border-bottom:1px solid rgba(255,255,255,.08);text-transform:none;letter-spacing:0;font-size:calc(13px*var(--k))">{{ r.label }}</th>
+                      <td style="font-weight:700;color:{{ r.ink }}">
+                        <span style="display:flex;align-items:center;gap:10px">
+                          <span style="min-width:4.5em">{{ r.value }}</span>
+                          <span aria-hidden="true" style="flex:1;max-width:160px;height:8px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden"><span style="display:block;height:100%;border-radius:3px;background:{{ r.fill }};width:{{ r.bar }}"></span></span>
+                        </span>
+                      </td>
+                      <td style="color:#F2FF49;font-weight:700">{{ r.note }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </section>
+
+            <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:calc(12px*var(--k));line-height:1.7;color:#A3A39D">Each fact is one short line so it fits on a Braille display. Use your screen reader's table commands to move through every value.</p>
           </article>
         </sc-if>
 
         <sc-if value="{{ isFeel }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;flex-direction:column;gap:14px">
-            <button onClick="{{ togglePlay }}" style="align-self:flex-start;padding:11px 16px;min-height:44px;border:1px solid {{ playBorder }};border-radius:12px;background:{{ playBg }};color:{{ playFg }};font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer;font-weight:700">{{ playLabel }}</button>
+          <section id="cs-panel-feel" role="tabpanel" aria-labelledby="cs-tab-feel" style="display:flex;flex-direction:column;gap:14px">
+            <sc-if value="{{ noVibrate }}" hint-placeholder-val="{{ false }}">
+              <p class="cs-card" style="margin:0;padding:14px 16px;font-size:calc(14px*var(--k));line-height:1.55;color:#E4E4DE">This browser can't vibrate (iPhones and most computers can't). You can still explore with the slider below: each step is shown on screen and read out to your screen reader or Braille display.</p>
+            </sc-if>
 
-            <div onPointerDown="{{ onScan }}" onPointerMove="{{ onScan }}" onPointerUp="{{ endScan }}" onPointerLeave="{{ endScan }}" style="position:relative;width:100%;aspect-ratio:4/3;border-radius:22px;overflow:hidden;touch-action:none;cursor:crosshair;background:#0A0A0A;border:1px solid rgba(255,255,255,.10);box-shadow:inset 0 6px 22px rgba(0,0,0,.9),inset 0 -2px 14px rgba(255,255,255,.05)">
-              <svg viewBox="0 0 400 300" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
-                <polyline points="{{ areaPts }}" fill="rgba(110,140,255,.16)" stroke="none"></polyline>
-                <polyline points="{{ linePts }}" fill="none" stroke="#8FA8FF" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></polyline>
-                <sc-for list="{{ points }}" as="p" hint-placeholder-count="12">
-                  <circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="4" fill="#050505" stroke="#8FA8FF" stroke-width="2"></circle>
-                </sc-for>
+            <div onPointerDown="{{ onScan }}" onPointerMove="{{ onScan }}" onPointerUp="{{ endScan }}" onPointerLeave="{{ endScan }}" aria-hidden="true" style="position:relative;width:100%;aspect-ratio:4/3;border-radius:22px;overflow:hidden;touch-action:none;cursor:crosshair;background:#0A0A0A;border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 6px 22px rgba(0,0,0,.9),inset 0 -2px 14px rgba(255,255,255,.05)">
+              <svg viewBox="0 0 1000 600" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+                <line x1="40" x2="960" y1="{{ baseY }}" y2="{{ baseY }}" stroke="rgba(255,255,255,.3)" stroke-width="2" vector-effect="non-scaling-stroke"></line>
+                <sc-if value="{{ isBar }}" hint-placeholder-val="{{ true }}">
+                  <sc-for list="{{ marks }}" as="m" hint-placeholder-count="6">
+                    <rect x="{{ m.x }}" y="{{ m.y }}" width="{{ m.w }}" height="{{ m.h }}" fill="{{ m.feelFill }}"></rect>
+                  </sc-for>
+                </sc-if>
+                <sc-if value="{{ isLine }}" hint-placeholder-val="{{ false }}">
+                  <polyline points="{{ areaPts }}" fill="rgba(110,140,255,.16)" stroke="none"></polyline>
+                  <polyline points="{{ linePts }}" fill="none" stroke="#8FA8FF" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                </sc-if>
               </svg>
               <div style="position:absolute;top:0;bottom:0;width:2px;background:#F2FF49;box-shadow:0 0 16px 3px rgba(242,255,73,.6);pointer-events:none;transition:opacity .15s;opacity:{{ scanOpacity }};left:{{ scanLeft }}"></div>
               <div style="position:absolute;top:14px;padding:10px 12px;border-radius:12px;background:rgba(10,10,10,.94);border:1px solid rgba(242,255,73,.5);box-shadow:0 10px 30px rgba(0,0,0,.7);pointer-events:none;transform:translateX(-50%);transition:opacity .15s;opacity:{{ scanOpacity }};left:{{ tipLeft }}">
-                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8E8E88">{{ scanLabel }}</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#F2FF49">{{ scanValue }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:calc(11px*var(--k));letter-spacing:.1em;color:#C9C9C3">{{ scanLabel }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:calc(18px*var(--k));font-weight:700;color:#F2FF49">{{ scanValue }}</div>
               </div>
+              <sc-if value="{{ flashOn }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;left:50%;bottom:18px;padding:10px 18px;border-radius:999px;background:#F2FF49;color:#050505;font-family:'JetBrains Mono',monospace;font-size:calc(15px*var(--k));font-weight:700;letter-spacing:.1em;animation:cs-flash .9s ease both;transform:translateX(-50%)">{{ flashText }}</div>
+              </sc-if>
               <sc-if value="{{ scanIdle }}" hint-placeholder-val="{{ true }}">
-                <div style="position:absolute;left:0;right:0;bottom:16px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;color:#8E8E88;pointer-events:none">DRAG ACROSS TO SCAN</div>
+                <div style="position:absolute;left:0;right:0;bottom:16px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:calc(12px*var(--k));letter-spacing:.1em;color:#A3A39D;pointer-events:none">DRAG ACROSS TO FEEL IT</div>
               </sc-if>
             </div>
 
-            <div style="display:flex;gap:10px">
-              <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:5px">
-                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8E8E88">POSITION</span>
-                <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#fff">{{ scanPos }}</span>
+            <label for="cs-explorer" style="display:flex;flex-direction:column;gap:6px">
+              <span class="cs-kicker">Step through the data</span>
+              <input id="cs-explorer" class="cs-range" type="range" min="1" max="{{ rangeMax }}" step="1" value="{{ rangeValue }}" aria-valuetext="{{ rangeText }}" onChange="{{ onRange }}" onFocus="{{ onRangeFocus }}" onBlur="{{ endScan }}" />
+            </label>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="cs-btn" onClick="{{ togglePlay }}" aria-pressed="{{ playing }}">Play whole chart</button>
+            </div>
+
+            <div aria-hidden="true" style="display:flex;gap:10px">
+              <div class="cs-card" style="flex:1;padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:5px">
+                <span class="cs-kicker">Position</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:calc(16px*var(--k));font-weight:700;color:#fff">{{ scanPos }}</span>
               </div>
-              <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:5px">
-                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8E8E88">SLOPE</span>
-                <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#F2FF49">{{ scanSlope }}</span>
+              <div class="cs-card" style="flex:1;padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:5px">
+                <span class="cs-kicker">Change</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:calc(16px*var(--k));font-weight:700;color:#F2FF49">{{ scanChange }}</span>
               </div>
-              <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:5px">
-                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8E8E88">PULSE</span>
-                <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#fff">{{ scanPulse }}</span>
+              <div class="cs-card" style="flex:1;padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:7px">
+                <span class="cs-kicker">Pulse</span>
+                <span style="height:10px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden"><span style="display:block;height:100%;border-radius:999px;background:#F2FF49;width:{{ pulseWidth }}"></span></span>
               </div>
             </div>
-            <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;color:#6E6E68">Haptic motor pulses harder as the value rises. Page scroll is locked while the canvas is held.</p>
-          </div>
+            <p style="margin:0;font-size:calc(13px*var(--k));line-height:1.7;color:#C9C9C3">The higher the value, the longer and stronger the buzz. Three quick taps mean the highest point; two mean the lowest. The same moments flash on screen. Page scroll is locked while your finger is on the chart.</p>
+          </section>
         </sc-if>
       </div>
     </sc-if>
 
+    </main>
+
+    <footer style="margin-top:auto;font-family:'JetBrains Mono',monospace;font-size:calc(11px*var(--k));line-height:1.7;color:#A3A39D">Built for blind, Deaf and deafblind readers. <a href="https://github.com/jaivarshanv/chartspeaks">Source on GitHub</a></footer>
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:650,&quot;height&quot;:900},&quot;marquee&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Shell&quot;},&quot;haptics&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Feel mode&quot;},&quot;startMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;READ&quot;,&quot;FEEL&quot;],&quot;default&quot;:&quot;READ&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Feel mode&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:680,&quot;height&quot;:900},&quot;marquee&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Shell&quot;},&quot;haptics&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Feel mode&quot;},&quot;startMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;SEE&quot;,&quot;READ&quot;,&quot;FEEL&quot;],&quot;default&quot;:&quot;READ&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Feel mode&quot;}}">
 // Defaults to the deployed backend; override with ?api=http://host:port
 // for local/LAN testing without touching this default.
 const API_BASE = new URLSearchParams(location.search).get('api') || 'https://chartspeaks-1.onrender.com';
 const MSGS = ['Reading file structure…','Extracting spatial data…','Mapping axis semantics…','Calculating salience…'];
 
-// Rebuilds the original {x,y} point list from a SeriesAnalysis. The API
-// never echoes the raw points back, but `changes[]` is an unfiltered
-// chain over every consecutive pair (see analyzer.py calculate_changes),
-// so the series is losslessly reconstructible by walking it from a known
-// anchor (the global maximum).
+// Three ways into the same chart. Each one stands alone, so nobody needs
+// sight, hearing, or touch in particular to get the whole story:
+//   SEE  -- for Deaf and hard-of-hearing readers: labels on the chart,
+//           captions, and a step-through that never needs sound.
+//   READ -- for screen reader and Braille display users (blind and
+//           deafblind): short lines, real headings, a real data table.
+//   FEEL -- for touch: vibration, plus a native slider whose value text
+//           reaches a screen reader or Braille display at every step.
+const MODES = [
+  { id: 'SEE', label: 'See', desc: 'A labelled picture and captions. No sound needed.' },
+  { id: 'READ', label: 'Read', desc: 'Text for screen readers and Braille displays.' },
+  { id: 'FEEL', label: 'Feel', desc: 'Explore by touch, vibration and arrow keys.' },
+];
+const TEXT_SIZES = [
+  { id: '1', label: 'A', name: 'Normal text' },
+  { id: '1.2', label: 'A+', name: 'Large text' },
+  { id: '1.45', label: 'A++', name: 'Extra large text' },
+];
+const SAMPLES = [
+  { file: 'samples/monthly_sales_bar.png', label: 'Bar chart' },
+  { file: 'samples/weekly_revenue_line.png', label: 'Line chart' },
+];
+const PREFS_KEY = 'chartspeaks.prefs';
+
+function loadPrefs() {
+  let calm = false;
+  try { calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { /* keep default */ }
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') || {}; } catch (e) { saved = {}; }
+  return { textSize: '1', calm, autoSpeak: false, vibrate: true, startMode: null, ...saved };
+}
+
+// Older backends never echo the raw points back, but `changes[]` is an
+// unfiltered chain over every consecutive pair (see analyzer.py
+// calculate_changes), so the series is losslessly reconstructible by
+// walking it from a known anchor (the global maximum). Current backends
+// send `chart` instead, which is preferred.
 function reconstructPoints(series) {
   const changes = series.changes || [];
   if (changes.length === 0) {
@@ -228,11 +445,50 @@ function prettifyTitle(chartId) {
   return chartId.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// Rate-ladder haptic engine, ported from shape-tracker.html: a small set of
-// discrete Hz "levels" played as a sustained tick-train that only restarts
-// when the level actually changes. Re-firing navigator.vibrate() every frame
-// (the previous approach here) cancels whatever's running before the motor
-// spins up, which smears everything into flat static -- this fixes that.
+// Values read off an image are measurements, good to about three
+// significant figures -- so show that many, not "25.0924", which is
+// slower to hear, longer on a Braille line, and falsely precise.
+function fmt(v) {
+  const a = Math.abs(v);
+  if (a >= 100) return Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (a >= 10) return Number(v).toLocaleString('en-US', { maximumFractionDigits: 1 });
+  if (a >= 1) return Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return Number(Number(v).toPrecision(3)).toString();
+}
+
+// Split narration into sentences for captions, without breaking on the
+// decimal point inside a number like "9.12".
+function splitSentences(text) {
+  return (text || '').split(/(?<=[.!?])\s+(?=[A-Z'"(])/).map(t => t.trim()).filter(Boolean);
+}
+
+function trendWords(trend) {
+  if (!trend || trend.direction === 'flat') return 'Mostly flat';
+  const dir = trend.direction === 'increasing' ? 'Rising' : 'Falling';
+  const how = trend.strength >= 0.7 ? 'steadily' : trend.strength >= 0.4 ? 'fairly steadily' : 'unevenly';
+  return dir + ', ' + how;
+}
+
+// One 1000x600 plot box shared by the SEE and FEEL charts, so pointer
+// math, labels and shapes always agree. Labels are HTML laid over the SVG
+// (by percentage) so text never stretches with preserveAspectRatio=none.
+const PL = 40, PR = 960, PT = 110, PB = 490;
+
+function relForIndex(i, n, isBar) {
+  if (isBar) return (i + 0.5) / n;
+  return n > 1 ? i / (n - 1) : 0.5;
+}
+
+function indexForRel(rel, n, isBar) {
+  if (isBar) return Math.min(n - 1, Math.max(0, Math.floor(rel * n)));
+  return Math.round(rel * (n - 1));
+}
+
+// Rate-ladder haptic engine, ported from prototypes/shape-tracker.html: a
+// small set of discrete Hz "levels" played as a sustained tick-train that
+// only restarts when the level actually changes. Re-firing
+// navigator.vibrate() every frame cancels whatever's running before the
+// motor spins up, which smears everything into flat static.
 const LADDER = [2, 4, 8, 16];
 const CHUNK_MS = 900;
 const MIN_TICK = 8, MAX_TICK = 22;
@@ -259,13 +515,11 @@ function levelForHeight(h) {
   return idx;
 }
 
-// Real charts only have a handful of actual data points, so snapping the
-// haptic feed to the nearest one makes long stretches between points feel
-// dead (only the points themselves register). Interpolate height linearly
-// along the same piecewise-linear path the SVG line itself draws, so the
-// haptic level can change continuously anywhere along the line -- matching
-// how shape-tracker.html densely samples its shapes -- instead of only at
-// the handful of real point positions.
+// Real line charts only have a handful of actual data points, so
+// interpolate along the same piecewise-linear path the line draws, letting
+// the haptic level change anywhere along it. Bars are flat-topped, so a
+// bar chart instead reads the bar under the finger -- interpolating would
+// invent values between bars that the chart does not contain.
 function interpolateSeg(pts, rel) {
   const n = pts.length;
   if (n < 2) return { y: pts[0] ? pts[0].y : 0, i0: 0, i1: 0, frac: 0 };
@@ -277,29 +531,57 @@ function interpolateSeg(pts, rel) {
   return { y, i0, i1, frac };
 }
 
-function heightAtFraction(pts, min, span, rel) {
-  if (pts.length < 2) return 0.5;
-  const y = interpolateSeg(pts, rel).y;
-  return Math.min(1, Math.max(0, (y - min) / span));
-}
-
 const PLAY_MS = 4000;
 const STEP_MS = 40;
 
 class Component extends DCLogic {
-  state = { stage:'upload', mode:null, drop:false, file:'', scan:null, scanRel:null, apiResult:null, errorMessage:null, step:0, elapsedMs:0, level:-1, playing:false, speaking:false };
+  state = {
+    stage:'upload', mode:null, drop:false, file:'', apiResult:null, errorMessage:null,
+    msgStep:0, elapsedMs:0, imageUrl:null, seriesIdx:0,
+    scan:null, scanRel:null, level:-1, playing:false, flash:null,
+    seeStep:0, speaking:false, speakIdx:-1,
+    settingsOpen:false, prefs: loadPrefs(),
+  };
+
+  componentDidMount(){
+    // Free hosting sleeps when idle; start waking the server now so the
+    // first upload doesn't sit through the whole cold start.
+    fetch(`${API_BASE}/health`).catch(() => {});
+  }
 
   componentWillUnmount(){
     this.clearTimers();
     this.stopPlay();
     this.stopBuzz();
     this.stopSpeak();
+    clearTimeout(this._flashTimer);
     if (this.abortController) this.abortController.abort();
+    if (this.state.imageUrl) URL.revokeObjectURL(this.state.imageUrl);
   }
 
   clearTimers = () => { (this.timers||[]).forEach(clearInterval); this.timers = []; };
 
+  // Moves keyboard, screen reader and Braille focus to whatever just
+  // appeared, so nobody is left on a button that no longer exists.
+  focusId = (id) => { const el = document.getElementById(id); if (el) el.focus(); };
+
+  // ---- settings ---------------------------------------------------------
+  setPref = (key, value) => {
+    const prefs = { ...this.state.prefs, [key]: value };
+    this.setState({ prefs });
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) { /* private mode: keep for this visit only */ }
+    if (key === 'vibrate' && !value) this.stopBuzz();
+  };
+
+  _vibrateApi = () => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+  _vibrateOn = () => this._vibrateApi() && this.state.prefs.vibrate && (this.props.haptics ?? true);
+
+  // ---- upload -----------------------------------------------------------
   pickFile = () => { const el = document.getElementById('cs-file-input'); if (el) el.click(); };
+
+  onDropKey = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.pickFile(); }
+  };
 
   onFileInputChange = (e) => {
     const f = e.target.files && e.target.files[0];
@@ -316,6 +598,18 @@ class Component extends DCLogic {
     if (f) this.beginAnalysis(f);
   };
 
+  openSample = async (sample) => {
+    try {
+      const res = await fetch(sample.file);
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      this.beginAnalysis(new File([blob], sample.file.split('/').pop(), { type: blob.type || 'image/png' }));
+    } catch (err) {
+      console.error('[ChartSpeaks] could not load sample', sample.file, err);
+      this.setState({stage:'error', errorMessage:'The sample chart could not be loaded. Try uploading your own chart instead.'}, () => this.focusId('cs-error-heading'));
+    }
+  };
+
   beginAnalysis = async (file) => {
     if (this.abortController) this.abortController.abort();
     const controller = new AbortController();
@@ -325,13 +619,20 @@ class Component extends DCLogic {
     this.stopPlay();
     this.stopBuzz();
     this.stopSpeak();
-    this.setState({stage:'processing', file:file.name, apiResult:null, errorMessage:null, step:0, elapsedMs:0, scan:null, scanRel:null, drop:false, mode:null});
+    if (this.state.imageUrl) URL.revokeObjectURL(this.state.imageUrl);
+    const imageUrl = /^image\//.test(file.type) ? URL.createObjectURL(file) : null;
+    this.setState({stage:'processing', file:file.name, apiResult:null, errorMessage:null, msgStep:0, elapsedMs:0, scan:null, scanRel:null, drop:false, mode:null, imageUrl, seriesIdx:0, seeStep:0}, () => this.focusId('cs-processing-heading'));
     this.timers = [setInterval(() => {
-      this.setState(s => ({ step: (s.step + 1) % MSGS.length, elapsedMs: s.elapsedMs + 1300 }));
+      this.setState(s => ({ msgStep: (s.msgStep + 1) % MSGS.length, elapsedMs: s.elapsedMs + 1300 }));
     }, 1300)];
 
     const formData = new FormData();
     formData.append('file', file);
+
+    const fail = (errorMessage) => {
+      this.clearTimers();
+      this.setState({stage:'error', errorMessage}, () => this.focusId('cs-error-heading'));
+    };
 
     let response;
     try {
@@ -339,8 +640,7 @@ class Component extends DCLogic {
     } catch (err) {
       if (err && err.name === 'AbortError') return;
       console.error('[ChartSpeaks] network error reaching', API_BASE, err);
-      this.clearTimers();
-      this.setState({stage:'error', errorMessage: 'Could not read the file . Check your connection, image-type ,nature and try again.'});
+      fail('Could not reach ChartSpeaks. Check your connection and try again. If it keeps failing, check the file is a clear chart image, CSV or JSON.');
       return;
     }
 
@@ -351,8 +651,7 @@ class Component extends DCLogic {
         if (body && body.detail) detail = body.detail;
       } catch (parseErr) { /* fall back to the generic message above */ }
       console.error('[ChartSpeaks] analyze-file failed:', response.status, detail);
-      this.clearTimers();
-      this.setState({stage:'error', errorMessage: detail});
+      fail(detail);
       return;
     }
 
@@ -361,13 +660,15 @@ class Component extends DCLogic {
       result = await response.json();
     } catch (parseErr) {
       console.error('[ChartSpeaks] could not parse response body', parseErr);
-      this.clearTimers();
-      this.setState({stage:'error', errorMessage: 'The server sent back something ChartSpeaks could not read.'});
+      fail('The server sent back something ChartSpeaks could not read.');
       return;
     }
 
     this.clearTimers();
-    this.setState({stage:'results', apiResult: result});
+    this.setState({stage:'results', apiResult: result}, () => {
+      this.focusId('cs-results-heading');
+      if (this.state.prefs.autoSpeak) this.startSpeak();
+    });
   };
 
   backToUpload = () => {
@@ -376,76 +677,99 @@ class Component extends DCLogic {
     this.stopPlay();
     this.stopBuzz();
     this.stopSpeak();
-    this.setState({stage:'upload', mode:null, scan:null, scanRel:null, file:'', apiResult:null, errorMessage:null});
+    if (this.state.imageUrl) URL.revokeObjectURL(this.state.imageUrl);
+    this.setState({stage:'upload', mode:null, scan:null, scanRel:null, file:'', apiResult:null, errorMessage:null, imageUrl:null}, () => this.focusId('cs-dropzone'));
   };
 
-  goRead = () => { this.stopPlay(); this.stopBuzz(); this.setState({mode:'READ'}); };
+  // ---- tabs -------------------------------------------------------------
+  _mode = () => this.state.mode || this.state.prefs.startMode || this.props.startMode || 'READ';
 
-  // ---- READ tab speech -------------------------------------------------
+  goMode = (id, cb) => {
+    this.stopPlay(); this.stopBuzz(); this.stopSpeak();
+    this.setState({mode:id, scan:null, scanRel:null}, cb);
+  };
+
+  // Arrow keys move between tabs (the ARIA tabs pattern), so keyboard and
+  // Braille users don't have to Tab through every tab to switch.
+  onTabKey = (e) => {
+    const order = MODES.map(m => m.id);
+    const cur = order.indexOf(this._mode());
+    let next;
+    if (e.key === 'ArrowRight') next = (cur + 1) % order.length;
+    else if (e.key === 'ArrowLeft') next = (cur + order.length - 1) % order.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = order.length - 1;
+    else return;
+    e.preventDefault();
+    const id = order[next];
+    this.goMode(id, () => this.focusId('cs-tab-' + id.toLowerCase()));
+  };
+
+  // ---- READ: speech with live captions ----------------------------------
   // Uses the browser's built-in speech engine (SpeechSynthesis). No API key,
-  // no network, no cost, and it keeps working offline -- the narration text
-  // is already in the page by the time this runs.
+  // no network, no cost. It is opt-in: screen reader users already hear the
+  // page in their own voice, and speaking it again would talk over them.
   //
-  // This button is deliberately OPT-IN. Screen reader users already have a
-  // voice they've tuned, and the summary paragraph is a polite live region,
-  // so their own reader announces the narration when it arrives. Speaking it
-  // again here would talk over them. The button exists for everyone else.
+  // Speaks one sentence at a time so the sentence being heard can be shown
+  // as a caption and highlighted in the text -- the same words, visible,
+  // for anyone who can't hear them. Short utterances also sidestep
+  // Chrome's habit of going silent ~15 seconds into a long one.
   _speechAvailable = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
 
-  startSpeak = (text) => {
-    if (!this._speechAvailable() || !text) return;
+  startSpeak = () => {
+    const sentences = this._sentences || [];
+    if (!this._speechAvailable() || !sentences.length) return;
     this.stopSpeak();
+    const run = (this._speechRun || 0) + 1;
+    this._speechRun = run;
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1;
-    utterance.lang = document.documentElement.lang || 'en-US';
-    // onend covers a natural finish; onerror covers a voice that fails to
-    // load. Without both, the button can get stuck reading STOP forever.
-    utterance.onend = () => this._speechEnded();
-    utterance.onerror = () => this._speechEnded();
+    const speakAt = (i) => {
+      if (run !== this._speechRun) return;
+      if (i >= sentences.length) { this._speechEnded(run); return; }
+      const utterance = new SpeechSynthesisUtterance(sentences[i]);
+      utterance.rate = 1;
+      utterance.lang = document.documentElement.lang || 'en-US';
+      utterance.onstart = () => { if (run === this._speechRun) this.setState({speakIdx:i}); };
+      utterance.onend = () => speakAt(i + 1);
+      // Without onerror, a voice that fails to load leaves the button
+      // stuck pressed forever.
+      utterance.onerror = () => this._speechEnded(run);
+      window.speechSynthesis.speak(utterance);
+    };
 
-    this._utterance = utterance;
-    this.setState({speaking:true});
-    window.speechSynthesis.speak(utterance);
-
-    // Chrome silently stops speaking after ~15 seconds unless the engine is
-    // nudged. A full narration runs longer than that, so pump it until the
-    // utterance actually ends.
-    this._speechPump = setInterval(() => {
-      if (!window.speechSynthesis.speaking) { this._speechEnded(); return; }
-      window.speechSynthesis.pause();
-      window.speechSynthesis.resume();
-    }, 10000);
+    this.setState({speaking:true, speakIdx:0});
+    speakAt(0);
   };
 
-  _speechEnded = () => {
-    clearInterval(this._speechPump); this._speechPump = null;
-    this._utterance = null;
-    if (this.state.speaking) this.setState({speaking:false});
+  _speechEnded = (run) => {
+    if (run !== this._speechRun) return;
+    if (this.state.speaking) this.setState({speaking:false, speakIdx:-1});
   };
 
   stopSpeak = () => {
     if (!this._speechAvailable()) return;
-    clearInterval(this._speechPump); this._speechPump = null;
+    this._speechRun = (this._speechRun || 0) + 1;
     window.speechSynthesis.cancel();
-    this._utterance = null;
-    if (this.state.speaking) this.setState({speaking:false});
+    if (this.state.speaking) this.setState({speaking:false, speakIdx:-1});
   };
 
   toggleSpeak = () => {
     if (this.state.speaking) this.stopSpeak();
-    else this.startSpeak(this._narrationText);
+    else this.startSpeak();
   };
 
+  // ---- SEE: step-through ------------------------------------------------
+  prevStep = () => this.setState(s => ({ seeStep: Math.max(0, s.seeStep - 1) }));
+  nextStep = () => this.setState(s => ({ seeStep: Math.min((this._steps || []).length - 1, s.seeStep + 1) }));
+
+  // ---- FEEL: haptics ----------------------------------------------------
   // Which real backend-verified event (if any) sits at this point index --
   // local_extrema first, falling back to the global range max/min so even a
-  // monotonic chart (no interior peaks/valleys) still gets an edge burst,
-  // matching what the READ tab already tags as HIGH/LOW.
+  // monotonic chart (no interior peaks/valleys) still gets an edge burst.
   _landmarkAt = (idx) => {
-    const series = this.state.apiResult && this.state.apiResult.analysis.series[0];
+    const series = this._series;
     if (!series) return null;
-    const local = series.local_extrema || [];
-    for (const ex of local) {
+    for (const ex of series.local_extrema || []) {
       if (ex.index === idx) return { kind: ex.type === 'peak' ? 'peak' : 'trough' };
     }
     if (idx === this._hiIdx) return { kind: 'peak' };
@@ -458,8 +782,8 @@ class Component extends DCLogic {
     clearInterval(this._rearmTimer); this._rearmTimer = null;
     this.setState({level: idx});
 
-    if (idx < 0) { if (navigator.vibrate) navigator.vibrate(0); return; }
-    if (!(this.props.haptics ?? true) || !navigator.vibrate) return;
+    if (idx < 0) { if (this._vibrateApi()) navigator.vibrate(0); return; }
+    if (!this._vibrateOn()) return;
 
     const hz = LADDER[idx];
     navigator.vibrate(train(hz));
@@ -471,28 +795,33 @@ class Component extends DCLogic {
 
   stopBuzz = () => {
     clearInterval(this._rearmTimer); this._rearmTimer = null;
-    if (navigator.vibrate) navigator.vibrate(0);
+    if (this._vibrateApi()) navigator.vibrate(0);
     if (this.state.level !== -1) this.setState({level: -1});
   };
 
+  // Every landmark buzz also flashes on screen, so the same moment is
+  // there for someone who can see but not feel it.
   fireLandmark = (kind) => {
     clearInterval(this._rearmTimer); this._rearmTimer = null;
-    this.setState({level: -1});
-    if ((this.props.haptics ?? true) && navigator.vibrate) {
-      navigator.vibrate(kind === 'peak' ? [30,60,30,60,30] : [30,60,30]);
-    }
+    this.setState({level: -1, flash: kind});
+    clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(() => this.setState({flash: null}), 900);
+    if (this._vibrateOn()) navigator.vibrate(kind === 'peak' ? [30,60,30,60,30] : [30,60,30]);
   };
 
-  // Shared by manual drag (onScan) and auto-Play, so both produce identical
-  // haptic/visual behavior through one code path. `idx` (nearest real data
-  // point) drives the visual label/tooltip and landmark detection; `rel`
-  // (continuous 0..1 position along the whole line) drives the haptic feed,
-  // so the vibration can change smoothly between points, not just at them.
-  applyScanIndex = (idx, rel) => {
+  _heightAt = (rel) => {
     const pts = this._points;
-    if (!pts || !pts[idx]) return;
-    if (rel === undefined) rel = idx / Math.max(1, pts.length - 1);
+    const y = this._isBar ? pts[indexForRel(rel, pts.length, true)].y : interpolateSeg(pts, rel).y;
+    return Math.min(1, Math.max(0, (y - this._min) / this._span));
+  };
+
+  // Shared by drag and Play, so both produce identical haptic and visual
+  // behavior. `rel` is the continuous 0..1 position across the plot.
+  applyScan = (rel) => {
+    const pts = this._points;
+    if (!pts || !pts.length) return;
     rel = Math.min(1, Math.max(0, rel));
+    const idx = indexForRel(rel, pts.length, this._isBar);
 
     const landmark = this._landmarkAt(idx);
     if (landmark && idx !== this._lastLandmarkIdx) {
@@ -503,10 +832,28 @@ class Component extends DCLogic {
     }
     if (!landmark) this._lastLandmarkIdx = null;
 
-    const h = heightAtFraction(pts, this._min, this._span, rel);
-    this.setLevel(levelForHeight(h));
+    this.setLevel(levelForHeight(this._heightAt(rel)));
     this.setState({scan: idx, scanRel: rel});
   };
+
+  // Keyboard and screen reader stepping: one discrete pulse per point.
+  // Duration carries the value (longer = higher), which is easier to tell
+  // apart one step at a time than a tick rate is.
+  stepTo = (idx) => {
+    const pts = this._points;
+    if (!pts || !pts[idx]) return;
+    this.stopBuzz();
+    this.setState({scan: idx, scanRel: relForIndex(idx, pts.length, this._isBar)});
+    const landmark = this._landmarkAt(idx);
+    if (landmark) { this.fireLandmark(landmark.kind); return; }
+    if (this._vibrateOn()) {
+      const h = Math.min(1, Math.max(0, (pts[idx].y - this._min) / this._span));
+      navigator.vibrate(Math.round(40 + h * 260));
+    }
+  };
+
+  onRange = (e) => { this.stopPlay(); this.stepTo(Number(e.target.value) - 1); };
+  onRangeFocus = () => { if (this.state.scan === null) this.stepTo(0); };
 
   onScan = (e) => {
     const pts = this._points;
@@ -514,9 +861,8 @@ class Component extends DCLogic {
     if (e.type === 'pointerdown') this.stopPlay();
     if (e.type === 'pointermove' && e.buttons === 0 && e.pointerType === 'mouse' && this.state.scan === null) return;
     const r = e.currentTarget.getBoundingClientRect();
-    const rel = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    const idx = Math.round(rel * (pts.length - 1));
-    this.applyScanIndex(idx, rel);
+    const vx = ((e.clientX - r.left) / r.width) * 1000;
+    this.applyScan((vx - PL) / (PR - PL));
   };
 
   endScan = () => {
@@ -534,14 +880,13 @@ class Component extends DCLogic {
     const playStart = Date.now();
 
     this._playTimer = setInterval(() => {
-      const elapsed = Date.now() - playStart;
-      const p = elapsed / PLAY_MS;
+      const p = (Date.now() - playStart) / PLAY_MS;
       if (p >= 1) {
-        this.applyScanIndex(pts.length - 1, 1);
+        this.applyScan(1);
         this.stopPlay();
         return;
       }
-      this.applyScanIndex(Math.round(p * (pts.length - 1)), p);
+      this.applyScan(p);
     }, STEP_MS);
   };
 
@@ -555,32 +900,43 @@ class Component extends DCLogic {
 
   renderVals(){
     const s = this.state;
-    const mode = s.mode || (this.props.startMode ?? 'READ');
+    const prefs = s.prefs;
+    const mode = this._mode();
+    const startMode = prefs.startMode || this.props.startMode || 'READ';
 
     const base = {
       marquee: this.props.marquee ?? true,
+      rootClass: prefs.calm ? 'cs-calm' : '',
+      textScale: prefs.textSize,
       isUpload: s.stage === 'upload',
       isProcessing: s.stage === 'processing',
       isError: s.stage === 'error',
       isResults: s.stage === 'results',
-      isRead: mode === 'READ', isFeel: mode === 'FEEL',
-      readTabBg: mode === 'READ' ? '#F2FF49' : 'transparent',
-      readTabFg: mode === 'READ' ? '#050505' : '#8E8E88',
-      readTabShadow: mode === 'READ' ? '0 6px 20px rgba(242,255,73,.28)' : 'none',
-      feelTabBg: mode === 'FEEL' ? '#F2FF49' : 'transparent',
-      feelTabFg: mode === 'FEEL' ? '#050505' : '#8E8E88',
-      feelTabShadow: mode === 'FEEL' ? '0 6px 20px rgba(242,255,73,.28)' : 'none',
-      goRead: this.goRead,
-      goFeel: ()=>{ this.stopSpeak(); this.setState({mode:'FEEL'}); },
+      isSee: mode === 'SEE', isRead: mode === 'READ', isFeel: mode === 'FEEL',
+      modeTabs: MODES.map(m => ({
+        id: 'cs-tab-' + m.id.toLowerCase(), panel: 'cs-panel-' + m.id.toLowerCase(), label: m.label,
+        selected: mode === m.id, tabindex: mode === m.id ? 0 : -1, select: () => this.goMode(m.id),
+      })),
+      onTabKey: this.onTabKey,
+      startChoices: MODES.map(m => ({ label: m.label, desc: m.desc, pressed: startMode === m.id, select: () => this.setPref('startMode', m.id) })),
+      samples: SAMPLES.map(sm => ({ label: sm.label, open: () => this.openSample(sm) })),
+      settingsOpen: s.settingsOpen,
+      toggleSettings: () => this.setState({settingsOpen: !s.settingsOpen}),
+      textSizes: TEXT_SIZES.map(t => ({ label: t.label, name: t.name, pressed: prefs.textSize === t.id, select: () => this.setPref('textSize', t.id) })),
+      calmOn: !!prefs.calm, toggleCalm: () => this.setPref('calm', !prefs.calm),
+      autoSpeakOn: !!prefs.autoSpeak, toggleAutoSpeak: () => this.setPref('autoSpeak', !prefs.autoSpeak),
+      vibrateApi: this._vibrateApi(), noVibrate: !this._vibrateApi(),
+      vibrateOn: !!prefs.vibrate, toggleVibrate: () => this.setPref('vibrate', !prefs.vibrate),
       dropGlow: s.drop ? 1 : 0,
       dropOn: ()=>this.setState({drop:true}),
       dropOff: ()=>this.setState({drop:false}),
       onDragOver: this.onDragOver,
       onDragLeave: this.onDragLeave,
       onDrop: this.onDrop,
+      onDropKey: this.onDropKey,
       pickFile: this.pickFile,
       onFileInputChange: this.onFileInputChange,
-      processMsg: MSGS[s.step % MSGS.length],
+      processMsg: MSGS[s.msgStep % MSGS.length],
       showColdStartHint: s.elapsedMs > 8000,
       fileName: s.file,
       errorMessage: s.errorMessage || '',
@@ -588,98 +944,199 @@ class Component extends DCLogic {
       reset: this.backToUpload,
       onScan: this.onScan,
       endScan: this.endScan,
+      onRange: this.onRange,
+      onRangeFocus: this.onRangeFocus,
       togglePlay: this.togglePlay,
-      playLabel: s.playing ? 'STOP' : 'PLAY GRAPH',
-      playBg: s.playing ? '#F2FF49' : 'transparent',
-      playFg: s.playing ? '#050505' : '#B9B9B4',
-      playBorder: s.playing ? '#F2FF49' : 'rgba(255,255,255,.18)',
+      playing: s.playing,
       speechOk: this._speechAvailable(),
       toggleSpeak: this.toggleSpeak,
-      speakLabel: s.speaking ? 'STOP' : 'PLAY NARRATION',
-      speakAria: s.speaking ? 'Stop the spoken narration' : 'Play the spoken narration',
-      speakBg: s.speaking ? '#F2FF49' : 'transparent',
-      speakFg: s.speaking ? '#050505' : '#B9B9B4',
-      speakBorder: s.speaking ? '#F2FF49' : 'rgba(255,255,255,.18)',
+      speaking: s.speaking,
+      prevStep: this.prevStep,
+      nextStep: this.nextStep,
     };
 
     if (s.stage !== 'results' || !s.apiResult) {
       this._points = null;
-      this._narrationText = '';
+      this._series = null;
+      this._sentences = [];
+      this._steps = [];
       return {
         ...base,
-        title:'', subtitle:'', summary:'',
-        count:0, hiLabel:'—', hiValue:'—', loLabel:'—', loValue:'—',
-        points:[], linePts:'', areaPts:'',
-        scanOpacity:0, scanIdle:true, scanLeft:'50%', tipLeft:'50%',
-        scanLabel:'—', scanValue:'—', scanPos:'—', scanSlope:'—', scanPulse:'—',
+        title:'', subtitle:'', multiSeries:false, seriesChoices:[],
+        chartAlt:'', isBar:false, isLine:false, baseY:490, marks:[], linePts:'', areaPts:'',
+        stepCounter:'', stepCaption:'', prevDisabled:true, nextDisabled:true,
+        facts:[], hasImage:false, imageUrl:'', sentences:[], captionText:'',
+        tableCaption:'', xHeader:'', yHeader:'', rows:[],
+        scanOpacity:0, scanIdle:true, scanLeft:'50%', tipLeft:'50%', scanLabel:'—', scanValue:'—',
+        flashOn:false, flashText:'', rangeMax:1, rangeValue:1, rangeText:'',
+        scanPos:'—', scanChange:'—', pulseWidth:'0%',
       };
     }
 
     const result = s.apiResult;
-    const series = result.analysis.series[0];
-    const narration = (result.narrations || []).find(n => n.series_id === series.series_id) || (result.narrations || [])[0] || { text: '' };
-    // Kept off state so toggleSpeak can read the current narration without
-    // the button needing the text threaded through the template.
-    this._narrationText = narration.text || '';
+    const chart = result.chart || null;
+    const allSeries = result.analysis.series;
+    const si = Math.min(s.seriesIdx, allSeries.length - 1);
+    const series = allSeries[si];
+    this._series = series;
+    const summary = (result.salience_summaries || []).find(x => x.series_id === series.series_id) || (result.salience_summaries || [])[si];
+    const narration = (result.narrations || []).find(n => n.series_id === series.series_id) || (result.narrations || [])[si] || { text: '' };
 
-    const pts = reconstructPoints(series);
+    const csrSeries = chart && (chart.series.find(x => x.id === series.series_id) || chart.series[si]);
+    const pts = csrSeries ? csrSeries.points.map(p => ({ x: p.x, y: p.y })) : reconstructPoints(series);
     this._points = pts;
     const n = pts.length;
+    const isBar = !!chart && chart.chart_type === 'bar';
+    this._isBar = isBar;
+    const typeWord = isBar ? 'bar' : 'line';
+    const noun = isBar ? (n === 1 ? 'bar' : 'bars') : (n === 1 ? 'point' : 'points');
+    const unit = chart && chart.y_axis && chart.y_axis.unit ? ' ' + chart.y_axis.unit : '';
+    const v = (y) => fmt(y) + unit;
 
-    const max = series.range.maximum.y, min = series.range.minimum.y;
-    const span = (max - min) || 1;
+    const hi = series.range.maximum, lo = series.range.minimum;
+    const min = lo.y, span = (hi.y - lo.y) || 1;
     this._min = min; this._span = span;
-    const X = i => 22 + i * (356 / Math.max(n - 1, 1));
-    const Y = v => 274 - ((v - min) / span) * 240;
-    const fmt = v => Number(v).toFixed(2);
-
-    const hiIdx = pts.findIndex(p => p.x === series.range.maximum.x);
-    const loIdx = pts.findIndex(p => p.x === series.range.minimum.x);
+    const hiIdx = pts.findIndex(p => p.x === hi.x);
+    const loIdx = pts.findIndex(p => p.x === lo.x);
     this._hiIdx = hiIdx; this._loIdx = loIdx;
+    const idxOf = (x) => pts.findIndex(p => p.x === x);
 
-    const points = pts.map((p, i) => ({
-      label: p.x,
-      value: fmt(p.y),
-      bar: (10 + Math.min(1, Math.max(0, (p.y - min) / span)) * 90).toFixed(1) + '%',
+    // ---- facts: one short line each, the same words in every tab ----
+    const changes = series.changes || [];
+    const rise = changes.reduce((b, c) => (c.absolute_change > 0 && (!b || c.absolute_change > b.absolute_change) ? c : b), null);
+    const fall = changes.reduce((b, c) => (c.absolute_change < 0 && (!b || c.absolute_change < b.absolute_change) ? c : b), null);
+    const first = pts[0].x, last = pts[n - 1].x;
+    const trend = trendWords(series.overall_trend);
+    const facts = [
+      { label: 'Highest', value: v(hi.y), detail: String(hi.x), line: `Highest: ${hi.x}, ${v(hi.y)}` },
+      { label: 'Lowest', value: v(lo.y), detail: String(lo.x), line: `Lowest: ${lo.x}, ${v(lo.y)}` },
+    ];
+    if (rise) facts.push({ label: 'Biggest rise', value: '+' + v(rise.absolute_change), detail: `${rise.from} to ${rise.to}`, line: `Biggest rise: ${rise.from} to ${rise.to}, up ${v(rise.absolute_change)}` });
+    if (fall) facts.push({ label: 'Biggest fall', value: '−' + v(-fall.absolute_change), detail: `${fall.from} to ${fall.to}`, line: `Biggest fall: ${fall.from} to ${fall.to}, down ${v(-fall.absolute_change)}` });
+    facts.push({ label: 'Overall', value: trend, detail: `${n} ${noun}, ${first} to ${last}`, line: `Overall: ${trend.toLowerCase()}, across ${n} ${noun} from ${first} to ${last}` });
+
+    // ---- SEE step-through: overview, then each ranked event ----
+    const steps = [{ caption: `This ${typeWord} chart has ${n} ${noun}, from ${first} to ${last}. Overall it is ${trend.toLowerCase()}.`, hl: [] }];
+    let hiDone = false, loDone = false;
+    for (const ev of (summary && summary.headline_events) || []) {
+      if (ev.type === 'peak' || ev.type === 'valley') {
+        const isHi = ev.type === 'peak' && ev.x === hi.x, isLo = ev.type === 'valley' && ev.x === lo.x;
+        hiDone = hiDone || isHi; loDone = loDone || isLo;
+        const what = isHi ? 'The highest point' : isLo ? 'The lowest point' : ev.type === 'peak' ? 'A peak' : 'A dip';
+        steps.push({ caption: `${what}: ${ev.x}, at ${v(ev.y)}.`, hl: [idxOf(ev.x)] });
+      } else if (ev.type === 'increase' || ev.type === 'decrease') {
+        const from = ev.from ?? ev.from_x, to = ev.to ?? ev.to_x;
+        const pct = ev.percentage_change !== null && ev.percentage_change !== undefined ? ` (${fmt(Math.abs(ev.percentage_change))}%)` : '';
+        const verb = ev.type === 'increase' ? 'up' : 'down';
+        steps.push({ caption: `${ev.type === 'increase' ? 'A rise' : 'A fall'} from ${from} to ${to}: ${verb} ${v(Math.abs(ev.absolute_change))}${pct}.`, hl: [idxOf(from), idxOf(to)] });
+      }
+    }
+    if (!hiDone) steps.push({ caption: `The highest point: ${hi.x}, at ${v(hi.y)}.`, hl: [hiIdx] });
+    if (!loDone) steps.push({ caption: `The lowest point: ${lo.x}, at ${v(lo.y)}.`, hl: [loIdx] });
+    this._steps = steps;
+    const stepIdx = Math.min(s.seeStep, steps.length - 1);
+    const step = steps[stepIdx];
+
+    // ---- geometry shared by SEE and FEEL ----
+    let dLo = Math.min(...pts.map(p => p.y)), dHi = Math.max(...pts.map(p => p.y));
+    if (isBar) { dLo = Math.min(0, dLo); dHi = Math.max(0, dHi); }
+    const dSpan = (dHi - dLo) || 1;
+    const Y = (y) => PB - ((y - dLo) / dSpan) * (PB - PT);
+    const baseY = isBar ? Y(0) : PB;
+    const slot = (PR - PL) / Math.max(n, 1);
+    const cxOf = (i) => PL + relForIndex(i, n, isBar) * (PR - PL);
+    const showAllValues = n <= 12;
+    const labelEvery = Math.max(1, Math.ceil(n / 12));
+    const marks = pts.map((p, i) => {
+      const cx = cxOf(i), y = Y(p.y);
+      const bw = slot * 0.62;
+      const lit = step.hl.includes(i);
+      const tag = i === hiIdx ? 'HIGH' : i === loIdx ? 'LOW' : '';
+      const top = isBar ? Math.min(y, baseY) : y;
+      const below = isBar && p.y < 0;
+      return {
+        x: (cx - bw / 2).toFixed(1), y: top.toFixed(1), w: bw.toFixed(1), h: Math.max(3, Math.abs(baseY - y)).toFixed(1),
+        seeFill: lit ? '#F2FF49' : 'rgba(143,168,255,.85)',
+        seeStroke: tag ? '#F2FF49' : 'none',
+        feelFill: (s.scan === i) ? 'rgba(242,255,73,.55)' : 'rgba(143,168,255,.5)',
+        leftPct: (cx / 10).toFixed(2) + '%',
+        dotTop: (y / 6).toFixed(2) + '%', dotSize: lit ? '18px' : '12px',
+        labelTop: ((below ? Math.max(y, baseY) + 10 : top - 64) / 6).toFixed(2) + '%',
+        badge: tag,
+        valueLabel: (showAllValues || tag || lit) ? fmt(p.y) : '',
+        valueInk: lit ? '#F2FF49' : '#FFFFFF',
+        xLabel: i % labelEvery === 0 ? String(p.x) : '',
+      };
+    });
+    const linePts = isBar ? '' : pts.map((p, i) => cxOf(i).toFixed(1) + ',' + Y(p.y).toFixed(1)).join(' ');
+    const areaPts = isBar ? '' : `${PL},${PB} ${linePts} ${PR},${PB}`;
+
+    // ---- READ ----
+    const sentences = splitSentences(narration.text);
+    this._sentences = sentences;
+    const rows = pts.map((p, i) => ({
+      label: String(p.x), value: v(p.y),
+      note: i === hiIdx ? 'Highest' : i === loIdx ? 'Lowest' : '',
+      ink: i === hiIdx || i === loIdx ? '#F2FF49' : '#FFFFFF',
       fill: i === hiIdx || i === loIdx ? '#F2FF49' : 'rgba(143,168,255,.85)',
-      ink: i === hiIdx || i === loIdx ? '#F2FF49' : '#fff',
-      tag: i === hiIdx ? 'HIGH' : (i === loIdx ? 'LOW' : null),
-      cx: X(i), cy: Y(p.y)
+      bar: (8 + Math.min(1, Math.max(0, (p.y - min) / span)) * 92).toFixed(1) + '%',
     }));
-    const linePts = pts.map((p, i) => X(i).toFixed(1) + ',' + Y(p.y).toFixed(1)).join(' ');
-    const areaPts = '22,296 ' + linePts + ' 378,296';
+    const xHeader = (chart && chart.x_axis.label) || (isBar ? 'Bar' : 'Point');
+    const yHeader = (chart && chart.y_axis.label) || series.name || 'Value';
 
-    const si = s.scan;
-    const active = si !== null && si !== undefined && s.scanRel !== null && s.scanRel !== undefined && !!pts[si];
-    // Continuous position along the whole line (not snapped to the nearest
-    // real point) drives everything visual/numeric, so the tracer follows
-    // the finger/Play sweep smoothly instead of jumping between the
-    // handful of real data points. `si`/`pts[si]` (nearest point) is kept
-    // only for the point label and position readout, which are inherently
-    // discrete ("TUES", "3/5").
-    const seg = active ? interpolateSeg(pts, s.scanRel) : null;
-    const yCont = seg ? seg.y : 0;
-    const slope = seg ? pts[seg.i1].y - pts[seg.i0].y : 0;
-    const XcPct = active ? (Math.min(1, Math.max(0, s.scanRel)) * (356/400) + 22/400) * 100 : 50;
+    // ---- FEEL ----
+    const scanIdx = s.scan;
+    const active = scanIdx !== null && scanIdx !== undefined && s.scanRel !== null && s.scanRel !== undefined && !!pts[scanIdx];
+    const rel = active ? Math.min(1, Math.max(0, s.scanRel)) : 0.5;
+    const yNow = active ? (isBar ? pts[scanIdx].y : interpolateSeg(pts, rel).y) : 0;
+    const scanX = (PL + rel * (PR - PL)) / 10;
+    let change = '—';
+    if (active) {
+      const delta = isBar
+        ? (scanIdx > 0 ? pts[scanIdx].y - pts[scanIdx - 1].y : null)
+        : (() => { const seg = interpolateSeg(pts, rel); return pts[seg.i1].y - pts[seg.i0].y; })();
+      change = delta === null ? 'first' : (delta >= 0 ? '+' : '−') + fmt(Math.abs(delta));
+    }
+    const rangeIdx = active ? scanIdx : 0;
+    const rp = pts[rangeIdx];
+    const landmark = rangeIdx === hiIdx ? ', the highest' : rangeIdx === loIdx ? ', the lowest' : '';
+    // The extractor falls back to the file's id when a chart has no
+    // printed title; show that as words, not "weekly_revenue_line".
+    const title = (chart && chart.title && chart.title !== result.chart_id ? chart.title : prettifyTitle(result.chart_id)) || series.name;
 
     return {
       ...base,
-      title: prettifyTitle(result.chart_id) || series.name,
-      subtitle: series.name.toUpperCase() + ' · ' + n + ' POINTS · ' + (s.file || '').toUpperCase(),
-      summary: narration.text,
-      count: n,
-      hiLabel: series.range.maximum.x, hiValue: fmt(series.range.maximum.y),
-      loLabel: series.range.minimum.x, loValue: fmt(series.range.minimum.y),
-      points, linePts, areaPts,
+      title,
+      subtitle: `${typeWord.toUpperCase()} CHART · ${n} ${noun.toUpperCase()} · ${(s.file || '').toUpperCase()}`,
+      multiSeries: allSeries.length > 1,
+      seriesChoices: allSeries.map((x, i) => ({ name: x.name, pressed: i === si, select: () => { this.stopSpeak(); this.endScan(); this.setState({seriesIdx: i, seeStep: 0}); } })),
+      chartAlt: `${typeWord[0].toUpperCase() + typeWord.slice(1)} chart, ${title}. ${n} ${noun} from ${first} to ${last}. Highest ${hi.x}, ${v(hi.y)}. Lowest ${lo.x}, ${v(lo.y)}.`,
+      isBar, isLine: !isBar, baseY: baseY.toFixed(1), marks, linePts, areaPts,
+      stepCounter: `Step ${stepIdx + 1} of ${steps.length}`,
+      stepCaption: step.caption,
+      prevDisabled: stepIdx === 0, nextDisabled: stepIdx >= steps.length - 1,
+      facts,
+      hasImage: !!s.imageUrl, imageUrl: s.imageUrl || '',
+      sentences: sentences.map((text, i) => {
+        const now = s.speaking && i === s.speakIdx;
+        return { text, bg: now ? '#F2FF49' : 'transparent', ink: now ? '#050505' : 'inherit' };
+      }),
+      captionText: s.speaking && sentences[s.speakIdx] ? sentences[s.speakIdx] : '',
+      tableCaption: `Every value in ${title}`,
+      xHeader, yHeader, rows,
       scanOpacity: active ? 1 : 0,
       scanIdle: !active,
-      scanLeft: active ? XcPct.toFixed(2)+'%' : '50%',
-      tipLeft: active ? Math.min(86, Math.max(14, XcPct)).toFixed(2)+'%' : '50%',
-      scanLabel: active ? String(pts[si].x).toUpperCase() : '—',
-      scanValue: active ? fmt(yCont) : '—',
-      scanPos: active ? (si+1) + '/' + n : '—',
-      scanSlope: active ? (slope >= 0 ? '+' : '') + slope.toFixed(2) : '—',
-      scanPulse: active ? Math.round(20 + Math.min(1, Math.max(0, (yCont - min)/span))*80) + '%' : '—',
+      scanLeft: scanX.toFixed(2) + '%',
+      tipLeft: Math.min(86, Math.max(14, scanX)).toFixed(2) + '%',
+      scanLabel: active ? String(pts[scanIdx].x).toUpperCase() : '—',
+      scanValue: active ? v(yNow) : '—',
+      flashOn: !!s.flash,
+      flashText: s.flash === 'peak' ? 'PEAK' : s.flash === 'trough' ? 'LOW POINT' : '',
+      rangeMax: n, rangeValue: rangeIdx + 1,
+      rangeText: `${rp.x}: ${v(rp.y)}${landmark}. ${rangeIdx + 1} of ${n}.`,
+      scanPos: active ? (scanIdx + 1) + ' / ' + n : '—',
+      scanChange: change,
+      pulseWidth: active ? Math.round(this._heightAt(rel) * 100) + '%' : '0%',
     };
   }
 }
