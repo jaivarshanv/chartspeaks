@@ -114,8 +114,11 @@ def _describe_trend_strength(strength: float) -> str:
 # start every clause the same way. Cycled BY INDEX, never randomly, so the
 # same facts always produce the same words -- a random narrator would be
 # untestable and would read differently on every replay of the same chart.
+# Headline events are ranked by salience, not by size of change, so the
+# first lead-in must not promise "the sharpest change" -- it is often a
+# peak or a valley.
 _EVENT_LEAD_INS = (
-    "The sharpest change comes here.",
+    "Most notably,",
     "From there,",
     "Also worth noting,",
     "And",
@@ -172,14 +175,19 @@ def render_template_narration(facts: NarrationFacts) -> str:
     x_unit = _unit_suffix(facts.x_unit)
     y_unit = _unit_suffix(facts.y_unit)
 
+    # Axis labels are often missing (image OCR can't read a rotated Y
+    # title at all), so never leave a blank where one would go.
+    across = f" across {facts.x_label}{x_unit}," if facts.x_label.strip() else ""
+    subject = f"the {facts.y_label}" if facts.y_label.strip() else facts.series_name
+
     sentences = [
-        f"'{facts.chart_title}' is a {facts.chart_type} chart tracking {facts.series_name} "
-        f"across {facts.x_label}{x_unit}, from {facts.x_first} to {facts.x_last}."
+        f"'{facts.chart_title}' is a {facts.chart_type} chart tracking {facts.series_name}"
+        f"{across} from {facts.x_first} to {facts.x_last}."
     ]
 
     strength_phrase = _describe_trend_strength(facts.trend_strength)
     sentences.append(
-        f"Across that span the {facts.y_label} is {facts.trend_direction}, in {strength_phrase} pattern, "
+        f"Across that span {subject} is {facts.trend_direction}, in {strength_phrase} pattern, "
         f"moving between a low of {facts.range_min.y:g}{y_unit} at {facts.range_min.x} "
         f"and a high of {facts.range_max.y:g}{y_unit} at {facts.range_max.x}."
     )

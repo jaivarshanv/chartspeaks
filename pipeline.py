@@ -51,4 +51,5 @@ def run_pipeline(csr: ChartCSR, prefer_llm: bool = True) -> ChartSpeakResponse:
         analysis=analysis,
         salience_summaries=salience_summaries,
         narrations=narrations,
+        chart=csr,
     )
