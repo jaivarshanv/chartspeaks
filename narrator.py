@@ -96,6 +96,26 @@ def _unit_suffix(unit: Optional[str]) -> str:
     return f" {unit}" if unit else ""
 
 
+def _fmt_number(value: float) -> str:
+    """
+    About three significant figures, the same rule the frontend's fmt()
+    uses so the summary and the key facts quote identical numbers.
+    Values read off an image are measurements good to roughly that
+    precision anyway; "25.0924" is slower to hear, longer on a Braille
+    line, and falsely exact. Exact data (e.g. 25 from a CSV) stays "25".
+    """
+    magnitude = abs(value)
+    if magnitude >= 100:
+        return f"{value:,.0f}"
+    if magnitude >= 10:
+        text = f"{value:.1f}"
+    elif magnitude >= 1:
+        text = f"{value:.2f}"
+    else:
+        return f"{value:.3g}"
+    return text.rstrip("0").rstrip(".")
+
+
 def _describe_trend_strength(strength: float) -> str:
     """
     Turns the 0-1 correlation-based strength number into a plain-English
@@ -147,13 +167,13 @@ def _describe_event(
 
     if event.type in ("peak", "valley"):
         word = "highest" if event.type == "peak" else "lowest"
-        body = f"at {event.x}, {series_name} reached its {word} notable point, {event.y:g}{unit}"
+        body = f"at {event.x}, {series_name} reached its {word} notable point, {_fmt_number(event.y)}{unit}"
     else:
         direction_word = "rose" if event.type == "increase" else "fell"
-        pct = f", or {abs(event.percentage_change):g}%" if event.percentage_change is not None else ""
+        pct = f", or {_fmt_number(abs(event.percentage_change))}%" if event.percentage_change is not None else ""
         body = (
             f"between {event.from_x} and {event.to_x}, {series_name} {direction_word} "
-            f"by {abs(event.absolute_change):g}{unit}{pct}"
+            f"by {_fmt_number(abs(event.absolute_change))}{unit}{pct}"
         )
 
     if lead.endswith("."):
@@ -179,17 +199,22 @@ def render_template_narration(facts: NarrationFacts) -> str:
     # title at all), so never leave a blank where one would go.
     across = f" across {facts.x_label}{x_unit}," if facts.x_label.strip() else ""
     subject = f"the {facts.y_label}" if facts.y_label.strip() else facts.series_name
+    # A chart with no printed title falls back to its file id; say it as
+    # words ("weekly revenue line"), not "weekly underscore revenue...".
+    title = facts.chart_title
+    if title == facts.chart_id:
+        title = re.sub(r"[-_]+", " ", title).strip()
 
     sentences = [
-        f"'{facts.chart_title}' is a {facts.chart_type} chart tracking {facts.series_name}"
+        f"'{title}' is a {facts.chart_type} chart tracking {facts.series_name}"
         f"{across} from {facts.x_first} to {facts.x_last}."
     ]
 
     strength_phrase = _describe_trend_strength(facts.trend_strength)
     sentences.append(
         f"Across that span {subject} is {facts.trend_direction}, in {strength_phrase} pattern, "
-        f"moving between a low of {facts.range_min.y:g}{y_unit} at {facts.range_min.x} "
-        f"and a high of {facts.range_max.y:g}{y_unit} at {facts.range_max.x}."
+        f"moving between a low of {_fmt_number(facts.range_min.y)}{y_unit} at {facts.range_min.x} "
+        f"and a high of {_fmt_number(facts.range_max.y)}{y_unit} at {facts.range_max.x}."
     )
 
     if not facts.headline_events:
