@@ -150,6 +150,7 @@ def _describe_event(
     series_name: str,
     y_unit: Optional[str],
     position: int = 0,
+    extreme_xs: tuple = (None, None),
 ) -> str:
     """
     Speech-friendly phrasing for one headline event. Deliberately NOT the
@@ -161,13 +162,25 @@ def _describe_event(
 
     `position` selects a lead-in phrase so consecutive event sentences
     don't all open identically; it never changes any stated fact.
+
+    `extreme_xs` is (x of the series maximum, x of the series minimum).
+    Only those two get "highest"/"lowest": a chart can have several local
+    peaks, and calling each one "its highest point" tells the listener
+    two different things.
     """
     unit = _unit_suffix(y_unit)
     lead = _EVENT_LEAD_INS[position % len(_EVENT_LEAD_INS)]
 
     if event.type in ("peak", "valley"):
-        word = "highest" if event.type == "peak" else "lowest"
-        body = f"at {event.x}, {series_name} reached its {word} notable point, {_fmt_number(event.y)}{unit}"
+        value = f"{_fmt_number(event.y)}{unit}"
+        if event.type == "peak" and event.x == extreme_xs[0]:
+            body = f"at {event.x}, {series_name} reached its highest point, {value}"
+        elif event.type == "valley" and event.x == extreme_xs[1]:
+            body = f"at {event.x}, {series_name} reached its lowest point, {value}"
+        elif event.type == "peak":
+            body = f"at {event.x}, {series_name} reached a peak of {value}"
+        else:
+            body = f"at {event.x}, {series_name} dipped to a low of {value}"
     else:
         direction_word = "rose" if event.type == "increase" else "fell"
         pct = f", or {_fmt_number(abs(event.percentage_change))}%" if event.percentage_change is not None else ""
@@ -224,7 +237,10 @@ def render_template_narration(facts: NarrationFacts) -> str:
         )
     else:
         for position, event in enumerate(facts.headline_events):
-            sentences.append(_describe_event(event, facts.series_name, facts.y_unit, position))
+            sentences.append(_describe_event(
+                event, facts.series_name, facts.y_unit, position,
+                extreme_xs=(facts.range_max.x, facts.range_min.x),
+            ))
 
     return " ".join(sentences)
 
