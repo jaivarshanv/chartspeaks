@@ -62,6 +62,7 @@ user picked.
 | `422` | Y-axis ticks OCR'd but not spread out enough to calibrate | `"The Y-axis labels ChartSpeak found were not usably spread out on this chart."` |
 | `422` | No X-axis tick labels OCR'd | `"ChartSpeak couldn't read the X-axis labels on this chart. Try a clearer chart image with visible axis labels."` |
 | `422` | No colored (non-grayscale) series pixels found | `"ChartSpeak couldn't find a plotted line or set of data points on this chart. Try a chart where the data series has a distinct color from the axes and gridlines."` |
+| `422` | Stacked bar chart detected (one colored segment sitting on another) | `"This looks like a stacked bar chart, which ChartSpeak can't read reliably yet. Try a chart with bars side by side, or upload the data as .csv or .json."` |
 | `422` | Colors found but none line up with X-axis ticks | `"ChartSpeak found colors on this chart but couldn't line them up with the X-axis labels. Try a chart where each data point sits directly above its axis label."` |
 | `422` | `.json` isn't valid JSON | `"That .json file isn't valid JSON."` |
 | `422` | `.json`/`.csv` doesn't match the `ChartCSR` schema | `"That file doesn't match the expected chart format: <pydantic validation error>"` |
@@ -110,11 +111,23 @@ If any step can't find what it needs, it raises a specific
 
 ### Honest limitations
 
-This handles clean, computer-generated line charts with visible
-gridlines and printed, OCR-legible axis tick numbers/labels — e.g. an
-Excel/matplotlib export or a clean screenshot. It is **not**:
+This handles clean, computer-generated line charts and vertical bar
+charts with printed, OCR-legible axis tick numbers/labels — e.g. an
+Excel/matplotlib export or a clean screenshot.
+
+Bars are detected before the line path: solid rectangles centered on an
+X tick that stand on (or hang from) the zero line. Each bar's value is
+read from its far edge -- the top of a rising bar, the bottom of a
+negative one -- never its middle. One bar per tick (any colors) is one
+series; several bars per tick (grouped bars) become one series per
+color. Gridlines drawn over bars are bridged. Such charts come back with
+`chart_type: "bar"`.
+
+It is **not**:
 - a general photograph-of-a-whiteboard/handwriting digitizer,
-- a bar-chart or pie-chart digitizer (line charts only, today),
+- a pie-chart, horizontal-bar or stacked-bar digitizer (horizontal bars
+  fail Y-axis calibration with the usual 422; stacked bars are detected
+  and rejected rather than misread),
 - reliable on charts with more than two data-series colors (marker↔line
   color pairing beyond a single pair is a best-effort nearest-match,
   documented as unverified),
@@ -124,6 +137,9 @@ Excel/matplotlib export or a clean screenshot. It is **not**:
 Verified end-to-end against three real, independently-produced test
 images (a bundled sample PNG, a freshly generated matplotlib PNG, and a
 re-compressed JPG of the same chart) — see `tests/test_image_extractor.py`.
+Bar charts are verified against single-color, per-bar-color, grouped,
+negative, JPEG-recompressed and stacked fixtures with known values — see
+`tests/test_bar_charts.py`.
 
 ## Schemas
 
@@ -157,9 +173,12 @@ Top level:
   "chart_id": "revenue",
   "analysis": { "...": "AnalysisResult -- see below" },
   "salience_summaries": [ { "...": "one SalienceSummary per series" } ],
-  "narrations": [ { "...": "one NarrationResult per series" } ]
+  "narrations": [ { "...": "one NarrationResult per series" } ],
+  "chart": { "...": "the ChartCSR the analysis ran on -- see above" }
 }
 ```
+
+`chart` echoes the input back -- its `chart_type` (`"line"` or `"bar"`), `title`, axes and every point -- so a client can draw the real chart instead of rebuilding points from `analysis.series[].changes`. It is optional in the schema, so recorded responses from before it existed still validate.
 
 `analysis` (`AnalysisResult`) — one `SeriesAnalysis` per series, plus an optional two-series `comparison`:
 ```json
