@@ -497,3 +497,8 @@ class ChartSpeakResponse(BaseModel):
     analysis: AnalysisResult
     salience_summaries: List[SalienceSummary]
     narrations: List[NarrationResult]
+    # The CSR the analysis ran on, echoed back so a client can draw the
+    # real chart (its type, title, axes and every point) instead of
+    # rebuilding points from analysis.changes. Optional so older clients
+    # and recorded responses still validate.
+    chart: Optional[ChartCSR] = None

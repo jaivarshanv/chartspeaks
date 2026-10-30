@@ -325,6 +325,147 @@ def _sample_mask_column(mask: np.ndarray, x_pixel: int, search_radius: int = 4) 
 
 
 # ---------------------------------------------------------------------
+# Bar detection
+#
+# A bar chart's colored pixels are solid rectangles standing on a shared
+# baseline. Sampling one the way a line is sampled (the MEAN y of the
+# column's colored pixels, above) lands in the middle of the bar -- half
+# its real value -- and the thick column even scores full confidence. So
+# bars are detected first, and each bar's value is read from its far
+# edge (the top, for a bar rising from the baseline), never its middle.
+# ---------------------------------------------------------------------
+
+@dataclass
+class Bar:
+    tick: int    # index into x_labels
+    offset: float  # bar center minus tick center, pixels
+    x0: int
+    x1: int
+    y0: int      # top edge, region-local pixels
+    y1: int      # bottom edge, region-local pixels
+    hue: int
+    fill: float  # area / bounding-box area: 1.0 is a perfect rectangle
+
+
+def _find_bars(clusters: list[ColorCluster], tick_xs: list[float], tick_gap: float, zero_px: float) -> list[Bar]:
+    """Every solid rectangle that stands on (or hangs from) the baseline
+    and is centered near an X tick. Detected per hue cluster, so grouped
+    bars of different colors that touch each other stay separate."""
+    bars: list[Bar] = []
+    for cluster in clusters:
+        # Close vertical gaps of a few pixels: matplotlib draws gridlines
+        # OVER bars by default, which would otherwise cut one bar into a
+        # stack of pieces.
+        closed = cv2.morphologyEx(cluster.mask.astype(np.uint8) * 255, cv2.MORPH_CLOSE, np.ones((5, 1), np.uint8))
+        n, _labels, stats, _centroids = cv2.connectedComponentsWithStats(closed, connectivity=4)
+        for i in range(1, n):
+            x, y, w, hgt, area = (int(v) for v in stats[i])
+            # Narrower than a fifth of the tick spacing is a marker or a
+            # line stroke; wider than the spacing is an area fill.
+            if w < max(4.0, tick_gap * 0.2) or w > tick_gap * 1.05 or hgt < 2:
+                continue
+            fill = area / float(w * hgt)
+            if fill < 0.85:
+                continue
+            if min(abs(y - zero_px), abs(y + hgt - 1 - zero_px)) > 3:
+                continue
+            cx = x + w / 2.0
+            tick = min(range(len(tick_xs)), key=lambda t: abs(tick_xs[t] - cx))
+            offset = cx - tick_xs[tick]
+            if abs(offset) > tick_gap * 0.5:
+                continue
+            bar = Bar(tick=tick, offset=offset, x0=x, x1=x + w - 1, y0=y, y1=y + hgt - 1, hue=cluster.hue, fill=fill)
+            # Neighboring hue clusters overlap on the color wheel, so one
+            # bar whose color sits between two of them is found twice.
+            twin = next((b for b in bars if _overlap(b.x0, b.x1, bar.x0, bar.x1) > 0.5 and _overlap(b.y0, b.y1, bar.y0, bar.y1) > 0.5), None)
+            if twin is None:
+                bars.append(bar)
+            elif (bar.x1 - bar.x0) * (bar.y1 - bar.y0) > (twin.x1 - twin.x0) * (twin.y1 - twin.y0):
+                bars[bars.index(twin)] = bar
+    return bars
+
+
+def _overlap(a0: int, a1: int, b0: int, b1: int) -> float:
+    """Overlap of two closed pixel ranges, as a fraction of the shorter one."""
+    shared = min(a1, b1) - max(a0, b0) + 1
+    return max(0, shared) / float(max(1, min(a1 - a0, b1 - b0) + 1))
+
+
+def _stacked_segment_on(bar: Bar, sat_mask: np.ndarray, zero_px: float) -> bool:
+    """True if more colored pixels continue straight past the bar's far
+    edge -- the next segment of a stacked bar. Skips the one anti-aliased
+    row right at the edge."""
+    width = bar.x1 - bar.x0 + 1
+    c0, c1 = bar.x0 + width // 4, bar.x1 - width // 4 + 1
+    rising = abs(bar.y1 - zero_px) <= abs(bar.y0 - zero_px)
+    rows = range(bar.y0 - 4, bar.y0 - 1) if rising else range(bar.y1 + 2, bar.y1 + 5)
+    rows = [r for r in rows if 0 <= r < sat_mask.shape[0]]
+    if not rows or c1 <= c0:
+        return False
+    return float(sat_mask[rows, c0:c1].mean()) > 0.5
+
+
+def _bar_series(bars: list[Bar], x_labels: list[tuple[float, str]], tick_gap: float, zero_px: float, pixel_y_to_value) -> list[Series]:
+    """Turns detected bars into one series (one bar per tick, whatever
+    its color) or, for grouped bars, one series per color."""
+    by_tick: dict[int, list[Bar]] = {}
+    for bar in bars:
+        group = by_tick.setdefault(bar.tick, [])
+        # Pieces of one bar that a thick gridline still split apart.
+        same = next((b for b in group if b.hue == bar.hue and min(b.x1, bar.x1) > max(b.x0, bar.x0)), None)
+        if same is None:
+            group.append(bar)
+        else:
+            same.x0, same.x1 = min(same.x0, bar.x0), max(same.x1, bar.x1)
+            same.y0, same.y1 = min(same.y0, bar.y0), max(same.y1, bar.y1)
+            same.fill = min(same.fill, bar.fill)
+
+    for group in by_tick.values():
+        for a in group:
+            for b in group:
+                if a is b or a.hue == b.hue:
+                    continue
+                overlap = min(a.x1, b.x1) - max(a.x0, b.x0)
+                if overlap > 0.5 * min(a.x1 - a.x0, b.x1 - b.x0):
+                    raise ExtractionError(
+                        "This looks like a stacked bar chart, which ChartSpeak can't read reliably yet. "
+                        "Try a chart with bars side by side, or upload the data as .csv or .json."
+                    )
+
+    def value_of(bar: Bar) -> float:
+        # Read the edge away from the baseline: the top of a bar rising
+        # from it, the bottom of a (negative) bar hanging below it.
+        edge = bar.y0 if abs(bar.y1 - zero_px) <= abs(bar.y0 - zero_px) else bar.y1
+        return round(pixel_y_to_value(edge), 4)
+
+    def confidence_of(bar: Bar) -> float:
+        # A genuine, measured confidence: how rectangular the bar is and
+        # how squarely it sits over its tick label.
+        return round(max(0.5, min(bar.fill, 1.0 - abs(bar.offset) / tick_gap)), 3)
+
+    if max(len(group) for group in by_tick.values()) == 1:
+        points = [
+            ChartPoint(x=x_labels[t][1], y=value_of(by_tick[t][0]), confidence=confidence_of(by_tick[t][0]))
+            for t in sorted(by_tick)
+        ]
+        return [Series(id="series_0", name="Value", points=points)]
+
+    # Grouped bars: one series per color, ordered left to right within
+    # a group (the order the chart's own legend almost always uses).
+    hues = sorted({bar.hue for bar in bars}, key=lambda hue: np.mean([b.offset for b in bars if b.hue == hue]))
+    series_list: list[Series] = []
+    for hue in hues:
+        points = []
+        for t in sorted(by_tick):
+            match = next((b for b in by_tick[t] if b.hue == hue), None)
+            if match is not None:
+                points.append(ChartPoint(x=x_labels[t][1], y=value_of(match), confidence=confidence_of(match)))
+        if len(points) >= 2:
+            series_list.append(Series(id=f"series_{len(series_list)}", name=f"Series {len(series_list) + 1}", points=points))
+    return series_list
+
+
+# ---------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------
 
@@ -391,8 +532,15 @@ def extract_csr(image_bytes: bytes, chart_id: str) -> ChartCSR:
     x_labels = [(t.cx, t.text) for t in x_tokens]
 
     # --- Chart title: text above the plot area, if any ---
+    # Group into rows before ordering left to right: sorting on raw cy
+    # alone reorders words on one line, because a descender ("y" in
+    # "Monthly") pushes a word's box center lower than its neighbors'.
     above = [t for t in tokens if t.cy < top - 1]
-    title = " ".join(t.text for t in sorted(above, key=lambda t: (t.cy, t.cx))) if above else chart_id
+    title = chart_id
+    if above:
+        heights = sorted(t.y1 - t.y0 for t in above)
+        title_rows = _cluster_rows([t.cy for t in above], gap=max(4.0, heights[len(heights) // 2] * 0.6))
+        title = " ".join(" ".join(above[i].text for i in sorted(row, key=lambda i: above[i].cx)) for row in title_rows)
 
     # --- X axis label: a lone row below the tick row (e.g. "Day") ---
     x_axis_label = ""
@@ -435,6 +583,31 @@ def extract_csr(image_bytes: bytes, chart_id: str) -> ChartCSR:
             "ChartSpeak couldn't find a plotted line or set of data points on this chart. "
             "Try a chart where the data series has a distinct color from the axes and gridlines."
         )
+
+    # --- Bars first: a bar chart sampled as a line reads half-height ---
+    region_h = bottom - top
+    zero_px = (-intercept / slope - top) if abs(slope) > 1e-12 else float(region_h - 1)
+    zero_px = min(float(region_h - 1), max(0.0, zero_px))
+    tick_xs = [x - left for x in x_positions]
+    bars = _find_bars(clusters, tick_xs, tick_gap, zero_px)
+    bar_pixels = sum((b.x1 - b.x0 + 1) * (b.y1 - b.y0 + 1) * b.fill for b in bars)
+    if len({b.tick for b in bars}) >= max(2, len(x_labels) // 2) and bar_pixels >= 0.5 * sat_mask.sum():
+        if any(_stacked_segment_on(b, sat_mask, zero_px) for b in bars):
+            raise ExtractionError(
+                "This looks like a stacked bar chart, which ChartSpeak can't read reliably yet. "
+                "Try a chart with bars side by side, or upload the data as .csv or .json."
+            )
+        series_list = _bar_series(bars, x_labels, tick_gap, zero_px, lambda y_local: pixel_y_to_value(y_local + top))
+        if series_list:
+            logger.info("bar chart detected: %d bars, %s", len(bars), [(s.name, len(s.points)) for s in series_list])
+            return ChartCSR(
+                chart_id=chart_id,
+                title=title.strip() or chart_id,
+                chart_type="bar",
+                x_axis=XAxis(label=x_axis_label.strip(), unit=None, values=[lbl for _, lbl in x_labels]),
+                y_axis=YAxis(label=y_axis_label.strip(), unit=None, min=None, max=None),
+                series=series_list,
+            )
 
     marker_clusters = [c for c in clusters if c.is_marker_like and len(c.components) >= 2]
     line_clusters = [c for c in clusters if not (c.is_marker_like and len(c.components) >= 2)]
